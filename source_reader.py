@@ -17,7 +17,7 @@ import rethink.specs
 _begin = "/*!"
 _end = "*/"
 
-_magic_words = ["OR", "ONE OF", "END", "IF", "THEN", "ELSE", "``["]
+_magic_words = ["OR", "ONE OF", "END", "IF", "THEN", "ELSE", "``[", "EVALUATORS"]
 
 def find_all_comments(stream):
     """Grabs all text contained within _begin, _end pairs."""
@@ -114,9 +114,7 @@ def parameter_from_lines(lines):
             raise RuntimeError("Default specification strange, see parameter_from_lines.__doc__")
         default = split_fullstring[1]
         doc = "**".join(split_fullstring[2:]).strip()
-        if len(default) == 0:
-            default = None
-        elif default == "optional":
+        if default == "optional":
             optional = True
             default = None
     else:
@@ -137,6 +135,7 @@ def parameter_from_lines(lines):
         default = rethink.xml.primitives.valid_primitive_from_string(ptype, default)
 
     if is_primitive:
+        print("Creating a primitive: %s, %r"%(name, default))
         return rethink.specs.PrimitiveParameter(name, ptype, default, optional)
     else:
         return rethink.specs.DerivedParameter(name, ptype, optional)
@@ -171,7 +170,7 @@ def getnext_oneof(i, comments):
     options = []
     
     while i < len(comments):
-        i, junk, objs = read_this_scope(i+1, comments)
+        i, junk, objs, junk2 = read_this_scope(i+1, comments)
         assert(junk is None)
         options.append(objs)
 
@@ -190,6 +189,16 @@ def getnext_oneof(i, comments):
         if len(opts) == 0:
             raise RuntimeError("ONE OF: ... OR .. END block not properly formed")
     return i, options
+
+def getnext_evaluators(i, comments):
+    """Reads a continuous list of required evaluators."""
+    assert(comments[i].strip().startswith("EVALUATORS"))
+    reqs = []
+    i += 1
+    while i < len(comments) and comments[i].strip().startswith("-"):
+        reqs.append(comments[i].strip().split('`"')[1])
+        i += 1
+    return i, reqs
 
 def getnext_or(i, comments):
     """Throws on naked OR"""
@@ -216,6 +225,7 @@ def getnext_else(i,comments):
     raise NotImplementedError("not yet implemented")
 
 def read_this_scope(i, comments):
+    required_evaluators = []
     objects = []
     specname = None
     i = advance(i, comments)
@@ -241,12 +251,15 @@ def read_this_scope(i, comments):
         elif line.startswith("IF"):
             i, obj = getnext_if(i, comments)
             objects.append(obj)
+        elif line.startswith("EVALUATOR"):
+            i, reqs = getnext_evaluators(i, comments)
+            required_evaluators.extend(reqs)
         else:
             # exit the scope
             break
         i = advance(i, comments)
         
-    return i, specname, objects
+    return i, specname, objects, required_evaluators
 
 def read(filename):
     with open(filename, 'r') as fid:
@@ -256,10 +269,10 @@ def read(filename):
     i = 0
     while i < len(comments):
         print("looping in read %s with %d"%(filename, i))
-        i, specname, objects = read_this_scope(i,comments)
+        i, specname, objects, reqs = read_this_scope(i,comments)
         if specname is None:
             filebase = os.path.split(filename)[-1][:-3]
             specname = to_specname(filebase)
         if len(objects) > 0:
-            specs.append((specname, objects))
+            specs.append((specname, objects, reqs))
     return specs

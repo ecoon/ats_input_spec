@@ -17,7 +17,7 @@ import rethink.specs
 
 def to_string(name, obj):
     """Single line string from name and object"""
-    print("entering help with: %r, %r"%(name, type(obj)))
+    #print("entering help with: %r, %r"%(name, type(obj)))
     if type(obj) is rethink.specs.PrimitiveParameter:
         return obj.__str__()
     if type(obj) is rethink.specs.DerivedParameter:
@@ -29,6 +29,8 @@ def to_string(name, obj):
         if obj.is_filled():
             if len(obj) > 0:
                 filledstr = rethink.colors.FILLED + "Filled" + rethink.colors.RESET
+            elif obj.cls.__name__.endswith("-list"):
+                filledstr = rethink.colors.UNFILLED + "Empty List" + rethink.colors.RESET
             else:
                 filledstr = rethink.colors.DEFAULT + "Defaults but Empty" + rethink.colors.RESET
         else:
@@ -47,10 +49,7 @@ def _help(name, obj, include_optionals=True):
     except AttributeError:
         isfilled = False
 
-    try:
-        header = to_string(name, obj)
-    except Exception as err:
-        raise RuntimeError(err)
+    header = to_string(name, obj)
     if not isfilled and isoptional:
         header += rethink.colors.DEFAULT + " [optional]" + rethink.colors.RESET
     #print("header (%s): %s"%(name, header))
@@ -84,11 +83,22 @@ def _help(name, obj, include_optionals=True):
         oneofs = []
     oneof_lines = []
     for oneof in oneofs:
-        oneof_lines.append("ONE OF:")
-        for opts in oneof:
-            oneof_lines.extend(["  "+l for opt in opts for l in _help(opt.name,opt,include_optionals)])
-            oneof_lines.append("OR:")
-        oneof_lines.pop()
+        if not include_optionals:
+            print_this = True
+            for opt in oneof:
+                if all(obj.is_optional() for obj in opt):
+                    print_this = False
+                    break
+
+        else:
+            print_this = True
+                    
+        if print_this:
+            oneof_lines.append("ONE OF:")
+            for opts in oneof:
+                oneof_lines.extend(["  "+l for opt in opts for l in _help(opt.name,opt,include_optionals)])
+                oneof_lines.append("OR:")
+            oneof_lines.pop()
         
     lines = [header,]
     if len(filled) > 0:

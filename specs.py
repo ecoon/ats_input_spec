@@ -12,6 +12,7 @@ Definitions of types that are collections of other parameters.
 import collections
 import rethink.primitives
 import rethink.colors
+import rethink.printing
 
 class PrimitiveParameter(object):
     """A parameter whose type is a primitive."""
@@ -100,6 +101,7 @@ def _flatten(container):
     
 
 class GenericList(collections.MutableMapping):
+    __name__ = "list"
     """Base class for specs."""
     def __init__(self):
         self._store = dict()
@@ -282,7 +284,9 @@ class _Spec(GenericList):
         except KeyError:
             # not in the spec
             if self._policy_not_in_spec == "error":
-                raise KeyError("Parameter %s is not in the spec."%(name))
+                print('Parameter "%s" is not in the spec.'%(name))
+                rethink.printing.help("", self)
+                raise KeyError('Parameter "%s" is not in the spec.'%(name))
             elif self._policy_not_in_spec == "warn":
                 warnings.warn("Adding parameter %s of type %r even though it is not in the spec."%(name, type(value)))
                 super(_Spec,self).__setitem__(name, value)
@@ -320,7 +324,7 @@ class _Spec(GenericList):
                 subspec_name = value+" parameters"
                 subspec_specname = (name+" "+value).replace(" ","-")+"-spec"
                 try:
-                    subspec_ptype = self.spec_from_type_valid_types[subspec_specname]
+                    subspec_ptype = self.valid_types[subspec_specname]
                 except KeyError:
                     raise KeyError('Typed spec "%s" with value "%s" does not have a valid spec for "%s"'%(name,value,subspec_specname))
                 else:
@@ -331,8 +335,8 @@ class _Spec(GenericList):
                     elif self._policy_spec_from_type == "flat list":
                         for k,v in subspec_ptype.spec_notoneofs.items():
                             self.spec_notoneofs[k] = v
+                        for k,v in subspec_ptype.spec.items():
                             self.spec[k] = v
-                        
                         self.spec_oneofs.extend(subspec_ptype.spec_oneofs)
                         self.spec_oneof_inds.extend(subspec_ptype.spec_oneof_inds)
                         
@@ -409,6 +413,7 @@ class _Spec(GenericList):
                 to_add = known_types[cls.spec_notoneofs[k].ptype]
                 for newk,v in to_add.spec_notoneofs.items():
                     cls.spec_notoneofs[newk] = v
+                for newk,v in to_add.spec.items():
                     cls.spec[newk] = v
                 cls.spec_oneofs.extend(to_add.spec_oneofs)
                 cls.spec_oneof_inds.extend(to_add.spec_oneof_inds)
@@ -422,7 +427,8 @@ class _Spec(GenericList):
 
     
 
-def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_from_type=None, valid_types=None):
+def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_from_type=None,
+             valid_types_by_name=None, evaluator_requirements=None):
     """Generates a spec for a list of parameters, including optional and 
     defaulted parameters, which may be primitive or derived types.
 
@@ -435,8 +441,11 @@ def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_f
     if policy_spec_from_type == "none":
         policy_spec_from_type = None
 
-    if valid_types is None:
-        valid_types = []
+    if valid_types_by_name is None:
+        valid_types_by_name = dict()
+
+    if evaluator_requirements is None:
+        evaluator_requirements = list()
 
     class _MySpec(_Spec):
         """A spec, or list of requirements to fill an input parameter set."""
@@ -446,7 +455,8 @@ def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_f
         spec_oneof_inds = [None for i in range(len(spec_oneofs))]
         _policy_not_in_spec = policy_not_in_spec
         _policy_spec_from_type = policy_spec_from_type
-        spec_from_type_valid_types = valid_types
+        valid_types = valid_types_by_name
+        eval_reqs = evaluator_requirements
         __name__ = name
     _MySpec.__name__ = name
     return _MySpec

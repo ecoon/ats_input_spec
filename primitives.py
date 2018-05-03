@@ -91,7 +91,11 @@ def print_primitive_type(ptype):
 
 def is_primitive(ptype):
     """Is this type a primitive?"""
-    return ptype in text_primitives.keys()
+    if ptype in text_primitives.keys():
+        return True
+    elif ptype is list:
+        return True
+    return False
 
             
             

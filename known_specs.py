@@ -92,7 +92,7 @@ def to_specname(inname):
         chars.append(name[i].lower())
     res =  "".join(chars)+"-spec"
     res = res.replace("--", "-")
-    print(inname,res)
+    #print(inname,res)
     return res
 
 def load_specs(path, warn_on_empty=False, warn_on_error=True):
@@ -113,14 +113,14 @@ def load_specs(path, warn_on_empty=False, warn_on_error=True):
                 #    warnings.warn('Error reading "{0}": {1}'.format(os.path.join(dirname,f),err))
                 #else:
                 if True:
-                    for specname, speclist in specs:
+                    for specname, speclist, requirements in specs:
                         print("In file: %s got spec %s"%(f,specname))
                         if specname.endswith("-typed-spec"):
-                            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types=None)
+                            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
                         elif specname.endswith("-typedinline-spec"):
-                            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types=None)
+                            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
                         elif specname.endswith("-spec"):
-                            spec = rethink.specs.get_spec(specname, speclist)
+                            spec = rethink.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
                         else:
                             raise RuntimeError('Unrecognized spec "%s" from file "%s"'%(specname,f))
                         known_specs[specname] = spec
@@ -141,6 +141,34 @@ def load_specs(path, warn_on_empty=False, warn_on_error=True):
     # now a third pass to set ptypes
     for specname, spec in known_specs.items():
         spec.set_ptype(known_specs)
+
+    # do a pass to set key specs, which allow either suffix or key options
+    try:
+        print(known_specs["pk-physical-default-spec"].spec.keys())
+        print(known_specs["pk-physical-default-spec"].spec_notoneofs.keys())
+    except KeyError:
+        pass
+    for specname, spec in known_specs.items():
+        try:
+            spec_keys = list(spec.spec.keys()) # copy to modify
+        except AttributeError: # not a spec
+            pass
+        else:
+            for k in spec_keys:
+                if k.endswith(" key"):
+                    base = k[:-4]
+                    suffix = base + " suffix"
+                    v = spec.spec_notoneofs.pop(k)
+                    if v.default is not None and v.default.startswith("DOMAIN-"):
+                        default = v.default[7:]
+                    else:
+                        default = None
+                    assert(suffix not in spec.spec.keys())
+                    spec.spec[suffix] = rethink.specs.PrimitiveParameter(suffix, str, default=default)
+                    oneof = [[v,], [spec.spec[suffix],]]
+                    spec.spec_oneofs.append(oneof)
+                    spec.spec_oneof_inds.append(None)
+                
                             
 
 def load(warn_on_empty=False, warn_on_error=True):
@@ -151,3 +179,5 @@ def load(warn_on_empty=False, warn_on_error=True):
     load_specs(ats_path, warn_on_empty, warn_on_error)
     
 
+def get_known_spec(name, typename):
+    return rethink.specs.DerivedParameter(name, known_specs[typename])

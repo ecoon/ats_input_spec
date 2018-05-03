@@ -512,7 +512,7 @@ def test_typed_list():
     my_meshgen_class = rethink.specs.get_spec("mesh-type-gen-spec",my_meshgen)
 
     my_typed_class = rethink.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="sublist",
-                                            valid_types={my_meshgen_class.__name__:my_meshgen_class,
+                                            valid_types_by_name={my_meshgen_class.__name__:my_meshgen_class,
                                                          my_meshfile_class.__name__:my_meshfile_class})
     
     my_typed_obj = my_typed_class()
@@ -539,7 +539,7 @@ def test_typed_list2():
     my_meshgen_class = rethink.specs.get_spec("mesh-type-gen-spec",my_meshgen)
 
     my_typed_class = rethink.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="flat list",
-                                            valid_types={my_meshgen_class.__name__:my_meshgen_class,
+                                            valid_types_by_name={my_meshgen_class.__name__:my_meshgen_class,
                                                          my_meshfile_class.__name__:my_meshfile_class})
     
     my_typed_obj = my_typed_class()

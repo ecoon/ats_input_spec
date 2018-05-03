@@ -87,7 +87,7 @@ spec_text = """
 def test_read_multiple():
     assert(len(spec_text) == 5)
     print("My length in test:", len(spec_text))
-    i, name, speclist = rethink.source_reader.read_this_scope(0,spec_text)
+    i, name, speclist, others = rethink.source_reader.read_this_scope(0,spec_text)
     assert(len(speclist) == 3)
 
 
@@ -105,7 +105,7 @@ def test_read_multiple_specs():
     specs = []
     i = 0
     while i < len(spec_text2):
-        i, specname, objects = rethink.source_reader.read_this_scope(i,spec_text2)
+        i, specname, objects, others = rethink.source_reader.read_this_scope(i,spec_text2)
         if specname is None:
             filebase = os.path.split(filename)[-1][:-3]
             specname = to_specname(filebase)

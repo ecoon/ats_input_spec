@@ -229,7 +229,7 @@ END
 """.split("\n")
 @mock.patch('test_source_reader.rethink.source_reader.parameter_from_lines', parameter_from_lines)
 def test_read():
-    i, name, objs = rethink.source_reader.read_this_scope(0, t12)
+    i, name, objs, others = rethink.source_reader.read_this_scope(0, t12)
     assert(len(objs) == 3)
     assert(len(objs[0]) == 6)
     assert(len(objs[1]) == 3)
