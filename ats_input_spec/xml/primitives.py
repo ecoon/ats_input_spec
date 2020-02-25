@@ -1,4 +1,4 @@
-"""rethink/xml/primitives.py
+"""ats_input_spec/xml/primitives.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -9,7 +9,7 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Module for mapping from XML strings to python types.
 """
 
-import rethink.primitives as rp
+import ats_input_spec.primitives as rp
 
 xml_to_primitive = {'double':float,
                     'int':int,

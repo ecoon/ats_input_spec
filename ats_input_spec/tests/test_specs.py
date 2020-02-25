@@ -1,4 +1,4 @@
-"""rethink/test_specs.py
+"""ats_input_spec/test_specs.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -12,8 +12,8 @@ Tests specs functionality
 
 import pytest
 
-import rethink.specs
-import rethink.printing
+import ats_input_spec.specs
+import ats_input_spec.printing
 
 def _tosizes(list_of_lists_of_lists):
     return [[len(alist) for alist in list_of_lists] for list_of_lists in list_of_lists_of_lists]
@@ -45,20 +45,20 @@ def _checklen(obj, l):
 
             
 def test_list():
-    glist = rethink.specs.GenericList()
+    glist = ats_input_spec.specs.GenericList()
     # empty list is full
     assert(glist.is_filled())
 
 
 def test_typed_list_independence():
-    list_of_doubles = rethink.specs.get_typed_list("double-list", float)
-    list_of_ints = rethink.specs.get_typed_list("int-list", int)
+    list_of_doubles = ats_input_spec.specs.get_typed_list("double-list", float)
+    list_of_ints = ats_input_spec.specs.get_typed_list("int-list", int)
     assert(list_of_doubles is not list_of_ints)
     assert(list_of_doubles.ContainedPType is float)
     assert(list_of_ints.ContainedPType is int)
 
 def test_typed_list_append():
-    list_of_ints = rethink.specs.get_typed_list("int-list", int)
+    list_of_ints = ats_input_spec.specs.get_typed_list("int-list", int)
 
     # empty list
     my_ints = list_of_ints()
@@ -84,11 +84,11 @@ def test_typed_list_append():
 
 def test_leaf_spec():
     my_list = []
-    my_list.append(rethink.specs.PrimitiveParameter("one", float, 1.0))
-    my_list.append(rethink.specs.PrimitiveParameter("two", int))
-    my_list.append(rethink.specs.PrimitiveParameter("three", bool, optional=True))
+    my_list.append(ats_input_spec.specs.PrimitiveParameter("one", float, 1.0))
+    my_list.append(ats_input_spec.specs.PrimitiveParameter("two", int))
+    my_list.append(ats_input_spec.specs.PrimitiveParameter("three", bool, optional=True))
 
-    my_class = rethink.specs.get_spec("my-spec", my_list)
+    my_class = ats_input_spec.specs.get_spec("my-spec", my_list)
     assert(len(my_class.spec) == 3)
     my_instance = my_class()
     _check(my_instance, 0, 1, 2, list())
@@ -106,24 +106,24 @@ def test_leaf_spec():
 
 def test_nonleaf():
     my_leaf = []
-    my_leaf.append(rethink.specs.PrimitiveParameter("one", float, 1.0))
-    my_leaf.append(rethink.specs.PrimitiveParameter("two", int))
-    my_leaf.append(rethink.specs.PrimitiveParameter("three", bool, optional=True))
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("one", float, 1.0))
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("two", int))
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("three", bool, optional=True))
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     assert(len(my_leaf_class.spec) == 3)
 
     my_leaf2 = []
-    my_leaf2.append(rethink.specs.PrimitiveParameter("a", str, 'abc'))
-    my_leaf2.append(rethink.specs.PrimitiveParameter("b", int))
-    my_leaf2.append(rethink.specs.PrimitiveParameter("c", str, optional=True))
-    my_leaf2_class = rethink.specs.get_spec("my-spec2",my_leaf2)
+    my_leaf2.append(ats_input_spec.specs.PrimitiveParameter("a", str, 'abc'))
+    my_leaf2.append(ats_input_spec.specs.PrimitiveParameter("b", int))
+    my_leaf2.append(ats_input_spec.specs.PrimitiveParameter("c", str, optional=True))
+    my_leaf2_class = ats_input_spec.specs.get_spec("my-spec2",my_leaf2)
     assert(len(my_leaf2_class.spec) == 3)
     
     my_outer = []
-    my_outer.append(rethink.specs.DerivedParameter("numbers", my_leaf_class, False))
-    my_outer.append(rethink.specs.DerivedParameter("letters", my_leaf2_class, False))
-    my_outer.append(rethink.specs.PrimitiveParameter("control", int))
-    my_spec = rethink.specs.get_spec("my-outer",my_outer)
+    my_outer.append(ats_input_spec.specs.DerivedParameter("numbers", my_leaf_class, False))
+    my_outer.append(ats_input_spec.specs.DerivedParameter("letters", my_leaf2_class, False))
+    my_outer.append(ats_input_spec.specs.PrimitiveParameter("control", int))
+    my_spec = ats_input_spec.specs.get_spec("my-outer",my_outer)
     assert(len(my_spec.spec) == 3)
     
     my_instance = my_spec()
@@ -146,21 +146,21 @@ def test_nonleaf():
 
 def test_nonleaf_optional():
     my_leaf = []
-    my_leaf.append(rethink.specs.PrimitiveParameter("one", float, 1.0))
-    my_leaf.append(rethink.specs.PrimitiveParameter("three", bool, optional=True))
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("one", float, 1.0))
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("three", bool, optional=True))
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     assert(len(my_leaf_class.spec) == 2)
 
     my_leaf2 = []
-    my_leaf2.append(rethink.specs.PrimitiveParameter("b", int))
-    my_leaf2_class = rethink.specs.get_spec("my-spec2",my_leaf2)
+    my_leaf2.append(ats_input_spec.specs.PrimitiveParameter("b", int))
+    my_leaf2_class = ats_input_spec.specs.get_spec("my-spec2",my_leaf2)
     assert(len(my_leaf2_class.spec) == 1)
     
     my_outer = []
-    my_outer.append(rethink.specs.DerivedParameter("numbers", my_leaf_class, False))
-    my_outer.append(rethink.specs.DerivedParameter("letters", my_leaf2_class, True))
+    my_outer.append(ats_input_spec.specs.DerivedParameter("numbers", my_leaf_class, False))
+    my_outer.append(ats_input_spec.specs.DerivedParameter("letters", my_leaf2_class, True))
     
-    my_spec = rethink.specs.get_spec("my-outer", my_outer)
+    my_spec = ats_input_spec.specs.get_spec("my-outer", my_outer)
     my_instance = my_spec()
     _check(my_instance, 1, 0, 1, list())
     my_instance.fill_default("numbers") 
@@ -175,12 +175,12 @@ def test_nonleaf_optional():
 def test_one_of1():
     """Simplest case -- one option in one 'oneof'"""
     my_leaf = []
-    my_leaf.append(rethink.specs.PrimitiveParameter("one", float))
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("one", float))
     my_leaf.append(list())
-    my_leaf[1].append([rethink.specs.PrimitiveParameter("a", int),])
-    my_leaf[1].append([rethink.specs.PrimitiveParameter("b", int),])
+    my_leaf[1].append([ats_input_spec.specs.PrimitiveParameter("a", int),])
+    my_leaf[1].append([ats_input_spec.specs.PrimitiveParameter("b", int),])
                        
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _checklen(my_leaf_obj,1)
     _check(my_leaf_obj, 0, 2, 0, [[1,1]])
@@ -203,11 +203,11 @@ def test_one_of_with_optional():
     my_leaf = [list(),]
     my_leaf[0].append(list())
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("b", int, True))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("one", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int, True))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("one", int))
                        
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _checklen(my_leaf_obj,0)
     _check(my_leaf_obj, 0, 1, 0, [[2,1]])
@@ -230,14 +230,14 @@ def test_one_of2():
     """Multiple options in a branch"""
     my_leaf = [list(),]
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("b", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("one", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("two", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("one", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("two", int))
     
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _checklen(my_leaf_obj,0)
     _check(my_leaf_obj, 0, 1, 0, [[2,2]])
@@ -263,18 +263,18 @@ def test_one_of3():
     """Three options"""
     my_leaf = [list(),]
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("b", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("one", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("two", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("one", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("two", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("blue", int))
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("red", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("blue", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("red", int))
     
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _check(my_leaf_obj, 0, 1, 0, [[2,2,2]])
     _checklen(my_leaf_obj,0)
@@ -300,20 +300,20 @@ def test_shared_option():
     """Three options"""
     my_leaf = [list(),]
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("b", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("one", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("two", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("one", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("two", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("blue", int))
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("red", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("blue", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("red", int))
     
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _check(my_leaf_obj, 0, 1, 0, [[3,3,2]])
     _checklen(my_leaf_obj,0)
@@ -352,20 +352,20 @@ def test_shared_option2():
     """Three options"""
     my_leaf = [list(),]
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("b", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("one", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("two", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("one", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("two", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("blue", int))
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("red", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("blue", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("red", int))
     
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _check(my_leaf_obj, 0, 1, 0, [[3,3,2]])
     _checklen(my_leaf_obj,0)
@@ -388,22 +388,22 @@ def test_shared_option3():
     """Three options"""
     my_leaf = [list(),]
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("b", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("one", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("two", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("number_or_color", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("one", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("two", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("number_or_color", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("blue", int))
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("red", int))
-    my_leaf[0][2].append(rethink.specs.PrimitiveParameter("number_or_color", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("blue", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("red", int))
+    my_leaf[0][2].append(ats_input_spec.specs.PrimitiveParameter("number_or_color", int))
     
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _check(my_leaf_obj, 0, 1, 0, [[3,4,3]])
     _checklen(my_leaf_obj,0)
@@ -446,23 +446,23 @@ def test_shared_option3():
 def test_multiple():
     my_leaf = [list(),list()]
     my_leaf[0].append(list())
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("a", int))
-    my_leaf[0][0].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
+    my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
 
     my_leaf[0].append(list())
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("red", int))
-    my_leaf[0][1].append(rethink.specs.PrimitiveParameter("number_or_color", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("red", int))
+    my_leaf[0][1].append(ats_input_spec.specs.PrimitiveParameter("number_or_color", int))
 
     my_leaf[1].append(list())
-    my_leaf[1][0].append(rethink.specs.PrimitiveParameter("one", int))
-    my_leaf[1][0].append(rethink.specs.PrimitiveParameter("letter_or_number", int))
-    my_leaf[1][0].append(rethink.specs.PrimitiveParameter("number_or_color", int))
+    my_leaf[1][0].append(ats_input_spec.specs.PrimitiveParameter("one", int))
+    my_leaf[1][0].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))
+    my_leaf[1][0].append(ats_input_spec.specs.PrimitiveParameter("number_or_color", int))
 
     my_leaf[1].append(list())
-    my_leaf[1][1].append(rethink.specs.PrimitiveParameter("cat", int))
-    my_leaf[1][1].append(rethink.specs.PrimitiveParameter("dog", int))
+    my_leaf[1][1].append(ats_input_spec.specs.PrimitiveParameter("cat", int))
+    my_leaf[1][1].append(ats_input_spec.specs.PrimitiveParameter("dog", int))
     
-    my_leaf_class = rethink.specs.get_spec("my-spec",my_leaf)
+    my_leaf_class = ats_input_spec.specs.get_spec("my-spec",my_leaf)
     my_leaf_obj = my_leaf_class()
     _check(my_leaf_obj, 0, 2, 0, [[2,2],[3,2]])
     _checklen(my_leaf_obj,0)
@@ -501,55 +501,55 @@ def test_multiple():
 
 def test_typed_list():
     my_leaf = []
-    my_leaf.append(rethink.specs.PrimitiveParameter("mesh type", str))
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("mesh type", str))
 
     my_meshfile = []
-    my_meshfile.append(rethink.specs.PrimitiveParameter("file name", str))
-    my_meshfile_class = rethink.specs.get_spec("mesh-type-file-spec",my_meshfile)
+    my_meshfile.append(ats_input_spec.specs.PrimitiveParameter("file name", str))
+    my_meshfile_class = ats_input_spec.specs.get_spec("mesh-type-file-spec",my_meshfile)
 
     my_meshgen = []
-    my_meshgen.append(rethink.specs.PrimitiveParameter("nx", int))
-    my_meshgen_class = rethink.specs.get_spec("mesh-type-gen-spec",my_meshgen)
+    my_meshgen.append(ats_input_spec.specs.PrimitiveParameter("nx", int))
+    my_meshgen_class = ats_input_spec.specs.get_spec("mesh-type-gen-spec",my_meshgen)
 
-    my_typed_class = rethink.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="sublist",
+    my_typed_class = ats_input_spec.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="sublist",
                                             valid_types_by_name={my_meshgen_class.__name__:my_meshgen_class,
                                                          my_meshfile_class.__name__:my_meshfile_class})
     
     my_typed_obj = my_typed_class()
-    rethink.printing.help("my mesh", my_typed_obj)
+    ats_input_spec.printing.help("my mesh", my_typed_obj)
     print("---")
     my_typed_obj["mesh type"] = "file"
-    rethink.printing.help("my mesh", my_typed_obj)
+    ats_input_spec.printing.help("my mesh", my_typed_obj)
     print("---")
     my_typed_obj["file parameters"]["file name"] = "mesh.exo"
-    rethink.printing.help("my mesh", my_typed_obj)
+    ats_input_spec.printing.help("my mesh", my_typed_obj)
     assert(my_typed_obj.is_filled())
 
     
 def test_typed_list2():
     my_leaf = []
-    my_leaf.append(rethink.specs.PrimitiveParameter("mesh type", str))
+    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("mesh type", str))
 
     my_meshfile = []
-    my_meshfile.append(rethink.specs.PrimitiveParameter("file name", str))
-    my_meshfile_class = rethink.specs.get_spec("mesh-type-file-spec",my_meshfile)
+    my_meshfile.append(ats_input_spec.specs.PrimitiveParameter("file name", str))
+    my_meshfile_class = ats_input_spec.specs.get_spec("mesh-type-file-spec",my_meshfile)
 
     my_meshgen = []
-    my_meshgen.append(rethink.specs.PrimitiveParameter("nx", int))
-    my_meshgen_class = rethink.specs.get_spec("mesh-type-gen-spec",my_meshgen)
+    my_meshgen.append(ats_input_spec.specs.PrimitiveParameter("nx", int))
+    my_meshgen_class = ats_input_spec.specs.get_spec("mesh-type-gen-spec",my_meshgen)
 
-    my_typed_class = rethink.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="flat list",
+    my_typed_class = ats_input_spec.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="flat list",
                                             valid_types_by_name={my_meshgen_class.__name__:my_meshgen_class,
                                                          my_meshfile_class.__name__:my_meshfile_class})
     
     my_typed_obj = my_typed_class()
-    rethink.printing.help("my mesh", my_typed_obj)
+    ats_input_spec.printing.help("my mesh", my_typed_obj)
     print("---")
     my_typed_obj["mesh type"] = "file"
-    rethink.printing.help("my mesh", my_typed_obj)
+    ats_input_spec.printing.help("my mesh", my_typed_obj)
     print("---")
     my_typed_obj["file name"] = "mesh.exo"
-    rethink.printing.help("my mesh", my_typed_obj)
+    ats_input_spec.printing.help("my mesh", my_typed_obj)
     assert(my_typed_obj.is_filled())
 
     

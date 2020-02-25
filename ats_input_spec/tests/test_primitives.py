@@ -1,4 +1,4 @@
-"""rethink/test_primitives.py
+"""ats_input_spec/test_primitives.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -10,7 +10,7 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Tests primitives functionality.
 """
 
-import rethink.primitives as primitives
+import ats_input_spec.primitives as primitives
 import pytest
 
 

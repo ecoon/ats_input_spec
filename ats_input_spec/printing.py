@@ -1,4 +1,4 @@
-"""rethink/printing.py
+"""ats_input_spec/printing.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -9,35 +9,35 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Pretty printing.
 """
 
-import rethink.colors
-import rethink.primitives
-import rethink.specs
+import ats_input_spec.colors
+import ats_input_spec.primitives
+import ats_input_spec.specs
 
 
 
 def to_string(name, obj):
     """Single line string from name and object"""
     #print("entering help with: %r, %r"%(name, type(obj)))
-    if type(obj) is rethink.specs.PrimitiveParameter:
+    if type(obj) is ats_input_spec.specs.PrimitiveParameter:
         return obj.__str__()
-    if type(obj) is rethink.specs.DerivedParameter:
+    if type(obj) is ats_input_spec.specs.DerivedParameter:
         return obj.__str__()
 
-    if rethink.primitives.is_primitive(type(obj)):
-        return rethink.colors.NAME + name + rethink.colors.RESET + " = %r"%obj
+    if ats_input_spec.primitives.is_primitive(type(obj)):
+        return ats_input_spec.colors.NAME + name + ats_input_spec.colors.RESET + " = %r"%obj
     else:
         if obj.is_filled():
             if len(obj) > 0:
-                filledstr = rethink.colors.FILLED + "Filled" + rethink.colors.RESET
+                filledstr = ats_input_spec.colors.FILLED + "Filled" + ats_input_spec.colors.RESET
             elif obj.cls.__name__.endswith("-list"):
-                filledstr = rethink.colors.UNFILLED + "Empty List" + rethink.colors.RESET
+                filledstr = ats_input_spec.colors.UNFILLED + "Empty List" + ats_input_spec.colors.RESET
             else:
-                filledstr = rethink.colors.DEFAULT + "Defaults but Empty" + rethink.colors.RESET
+                filledstr = ats_input_spec.colors.DEFAULT + "Defaults but Empty" + ats_input_spec.colors.RESET
         elif type(obj).__name__.endswith("-list") and len(obj) is 0:
-            filledstr = rethink.colors.UNFILLED + "Empty List" + rethink.colors.RESET
+            filledstr = ats_input_spec.colors.UNFILLED + "Empty List" + ats_input_spec.colors.RESET
         else:
-            filledstr = rethink.colors.UNFILLED + "Not Filled" + rethink.colors.RESET
-        return rethink.colors.NAME + name + rethink.colors.RESET + " [{0}] : {1}".format(obj.__name__, filledstr)
+            filledstr = ats_input_spec.colors.UNFILLED + "Not Filled" + ats_input_spec.colors.RESET
+        return ats_input_spec.colors.NAME + name + ats_input_spec.colors.RESET + " [{0}] : {1}".format(obj.__name__, filledstr)
 
 def _help(name, obj, include_optionals=True):
     #print("entering help with: %r, %r"%(name, type(obj)))
@@ -54,7 +54,7 @@ def _help(name, obj, include_optionals=True):
 
     header = to_string(name, obj)
     if not isfilled and isoptional:
-        header += rethink.colors.DEFAULT + " [optional]" + rethink.colors.RESET
+        header += ats_input_spec.colors.DEFAULT + " [optional]" + ats_input_spec.colors.RESET
     #print("header (%s): %s"%(name, header))
 
     filled = []

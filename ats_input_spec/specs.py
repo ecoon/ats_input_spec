@@ -1,4 +1,4 @@
-"""rethink/specs.py
+"""ats_input_spec/specs.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -10,9 +10,9 @@ Definitions of types that are collections of other parameters.
 
 """
 import collections
-import rethink.primitives
-import rethink.colors
-import rethink.printing
+import ats_input_spec.primitives
+import ats_input_spec.colors
+import ats_input_spec.printing
 
 class PrimitiveParameter(object):
     """A parameter whose type is a primitive."""
@@ -33,19 +33,19 @@ class PrimitiveParameter(object):
 
         name [type] (optional)
         """
-        namestring = rethink.colors.NAME + self.name + rethink.colors.RESET
-        typestring = rethink.primitives.print_primitive_type(self.ptype)
+        namestring = ats_input_spec.colors.NAME + self.name + ats_input_spec.colors.RESET
+        typestring = ats_input_spec.primitives.print_primitive_type(self.ptype)
 
         if self.default is not None:
             defaultstring = "= %r"%self.default
         elif self.is_optional():
             defaultstring = "= None"
         else:
-            defaultstring = "= " + rethink.colors.UNFILLED + "None" + rethink.colors.RESET
+            defaultstring = "= " + ats_input_spec.colors.UNFILLED + "None" + ats_input_spec.colors.RESET
 
         # optionalstring = ""
         # if self.is_optional():
-        #     optionalstring = rethink.colors.DEFAULT + "(optional)" + rethink.colors.RESET
+        #     optionalstring = ats_input_spec.colors.DEFAULT + "(optional)" + ats_input_spec.colors.RESET
         # return "%s [%s] %s %s"%(namestring,typestring,defaultstring,optionalstring)
         return "%s [%s] %s"%(namestring,typestring,defaultstring)
         
@@ -70,7 +70,7 @@ class DerivedParameter(object):
 
         name [type] (optional)
         """
-        namestring = rethink.colors.NAME + self.name + rethink.colors.RESET
+        namestring = ats_input_spec.colors.NAME + self.name + ats_input_spec.colors.RESET
 
         if type(self.ptype) is str:
             typestring = self.ptype
@@ -78,7 +78,7 @@ class DerivedParameter(object):
             typestring = "%s"%self.ptype.__name__
         # optionalstring = ""
         # if self.is_optional():
-        #     optionalstring = rethink.colors.DEFAULT + "(optional)" + rethink.colors.RESET
+        #     optionalstring = ats_input_spec.colors.DEFAULT + "(optional)" + ats_input_spec.colors.RESET
         # return "%s [%s] %s %s"%(namestring,typestring,defaultstring,optionalstring)
         return "%s [%s]"%(namestring,typestring)
 
@@ -127,7 +127,7 @@ class GenericList(collections.MutableMapping):
         for k,v in self.items():
             if v is None:
                 return False
-            elif not rethink.primitives.is_primitive(type(v)) and not v.is_filled():
+            elif not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
                 return False
         return True
 
@@ -136,7 +136,7 @@ class GenericList(collections.MutableMapping):
         # parameters that are set and filled
         for k,v in self._store.items():
             if v is not None:
-                if rethink.primitives.is_primitive(type(v)):
+                if ats_input_spec.primitives.is_primitive(type(v)):
                     yield k,v
                 elif v.is_filled():
                     yield k,v
@@ -150,7 +150,7 @@ class GenericList(collections.MutableMapping):
             if v is None:
                 yield k,v
             else:
-                if not rethink.primitives.is_primitive(type(v)) and not v.is_filled():
+                if not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
                     yield k,v
 
     @classmethod
@@ -172,7 +172,7 @@ class _TypedList(GenericList):
 
     def __setitem__(self, key, value):
         if self._primitive:
-            value = rethink.primitives.valid_from_type(self.ContainedPType, value)
+            value = ats_input_spec.primitives.valid_from_type(self.ContainedPType, value)
         else:
             assert(type(value) is self.ContainedPType)                
         super(_TypedList,self).__setitem__(key, value)
@@ -211,7 +211,7 @@ def get_typed_list(name, ptype, empty_policy=False):
     class _MyTypedList(_TypedList):
         """A list whose entries must be of a given type."""
         ContainedPType = ptype
-        _primitive = rethink.primitives.is_primitive(ptype)
+        _primitive = ats_input_spec.primitives.is_primitive(ptype)
         _empty_policy = empty_policy
         __name__ = name
 
@@ -226,7 +226,7 @@ class _Spec(GenericList):
     def __init__(self):
         super(_Spec,self).__init__()
         for k,p in self.spec_notoneofs.items():
-            if not p.is_optional() and not rethink.primitives.is_primitive(p.ptype):
+            if not p.is_optional() and not ats_input_spec.primitives.is_primitive(p.ptype):
 #            if not p.is_optional():
                 self.fill_default(k)
     
@@ -235,7 +235,7 @@ class _Spec(GenericList):
         for k,v in self.items():
             if v is None:
                 return False
-            elif not rethink.primitives.is_primitive(type(v)) and not v.is_filled():
+            elif not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
                 return False
         for k,p in self.spec_notoneofs.items():
             if not (k in self.keys() or p.is_optional()):
@@ -257,7 +257,7 @@ class _Spec(GenericList):
     def fill_default(self, name):
         """Create an empty container for the contained spec given by name."""
         p = self.spec[name]
-        if rethink.primitives.is_primitive(p.ptype):
+        if ats_input_spec.primitives.is_primitive(p.ptype):
             if p.default is not None:
                 self[name] = p.default
             else:
@@ -271,8 +271,8 @@ class _Spec(GenericList):
 
     def _setitem(self, name, ptype, value):
         """Set the item without asking questions.  Used internally only!"""
-        if rethink.primitives.is_primitive(ptype):
-            value = rethink.primitives.valid_from_type(ptype, value)
+        if ats_input_spec.primitives.is_primitive(ptype):
+            value = ats_input_spec.primitives.valid_from_type(ptype, value)
         super(_Spec,self).__setitem__(name, value)
         
     def __setitem__(self, name, value):
@@ -282,7 +282,7 @@ class _Spec(GenericList):
             # not in the spec
             if self._policy_not_in_spec == "error":
                 print('Parameter "%s" is not in the spec.'%(name))
-                rethink.printing.help("", self)
+                ats_input_spec.printing.help("", self)
                 raise KeyError('Parameter "%s" is not in the spec.'%(name))
             elif self._policy_not_in_spec == "warn":
                 warnings.warn("Adding parameter %s of type %r even though it is not in the spec."%(name, type(value)))

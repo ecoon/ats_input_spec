@@ -1,4 +1,4 @@
-"""rethink/xml/to_xml.py
+"""ats_input_spec/xml/to_xml.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -6,23 +6,23 @@ provided in the top-level COPYRIGHT file.
 
 Authors: Ethan Coon (ecoon@lanl.gov)
 
-Takes a rethink parameter instance and generates the corresponding xml.
+Takes a ats_input_spec parameter instance and generates the corresponding xml.
 """
 
-from rethink.xml import etree
-import rethink.primitives
+from ats_input_spec.xml import etree
+import ats_input_spec.primitives
 
 def primitive_to_xml(name, obj):
     """Returns xml for a Parameter"""
     xml = etree.Element("Parameter")
     xml.set("name", name)
-    if type(obj) in rethink.primitives.valid_primitives:
-        xml.set("type", rethink.primitives.text_primitives[type(obj)])
+    if type(obj) in ats_input_spec.primitives.valid_primitives:
+        xml.set("type", ats_input_spec.primitives.text_primitives[type(obj)])
         xml.set("value", "%r"%obj)
     elif type(obj) is list:
         type0 = type(obj[0])
-        assert(type0 in rethink.primitives.valid_primitives)
-        xml.set("type", "Array(%s)"%rethink.primitives.text_primitives[type0])
+        assert(type0 in ats_input_spec.primitives.valid_primitives)
+        xml.set("type", "Array(%s)"%ats_input_spec.primitives.text_primitives[type0])
         xml.set("value", "{"+",".join(["%r"%ob for ob in obj])+"}")
     return xml
     
@@ -38,7 +38,7 @@ def derived_to_xml(name, obj):
 
 def obj_to_xml(name, obj):
     """Returns xml for a Parameter or ParameterList"""
-    if rethink.primitives.is_primitive(type(obj)):
+    if ats_input_spec.primitives.is_primitive(type(obj)):
         return primitive_to_xml(name, obj)
     else:
         return derived_to_xml(name, obj)

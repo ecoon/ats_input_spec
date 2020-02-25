@@ -1,4 +1,4 @@
-"""rethink/source_reader.py
+"""ats_input_spec/source_reader.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -11,8 +11,8 @@ the input spec in that file.
 """
 
 import os
-import rethink.xml.primitives
-import rethink.specs
+import ats_input_spec.xml.primitives
+import ats_input_spec.specs
 
 _begin = "/*!"
 _end = "*/"
@@ -123,7 +123,7 @@ def parameter_from_lines(lines):
 
     # convert the ptype to primitive
     try:
-        ptype = rethink.xml.primitives.xml_to_primitive[ptype]
+        ptype = ats_input_spec.xml.primitives.xml_to_primitive[ptype]
     except KeyError:
         is_primitive = False
         if default is not None:
@@ -132,13 +132,13 @@ def parameter_from_lines(lines):
         is_primitive = True
 
     if default is not None:
-        default = rethink.xml.primitives.valid_primitive_from_string(ptype, default)
+        default = ats_input_spec.xml.primitives.valid_primitive_from_string(ptype, default)
 
     if is_primitive:
         print("Creating a primitive: %s, %r"%(name, default))
-        return rethink.specs.PrimitiveParameter(name, ptype, default, optional)
+        return ats_input_spec.specs.PrimitiveParameter(name, ptype, default, optional)
     else:
-        return rethink.specs.DerivedParameter(name, ptype, optional)
+        return ats_input_spec.specs.DerivedParameter(name, ptype, optional)
 
 def getnext_param(i,comments):
     """Reads a Parameter"""

@@ -1,4 +1,4 @@
-"""rethink/public.py
+"""ats_input_spec/public.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -6,19 +6,19 @@ provided in the top-level COPYRIGHT file.
 
 Authors: Ethan Coon (ecoon@lanl.gov)
 
-The public interface of the rethink package.
+The public interface of the ats_input_spec package.
 
 """
 
-import rethink.specs
-import rethink.known_specs
+import ats_input_spec.specs
+import ats_input_spec.known_specs
 
-rethink.known_specs.load()
+ats_input_spec.known_specs.load()
 
 
 def get_main():
     """Gets the top level spec and all non-optional sub-specs."""
-    return rethink.known_specs.known_specs["simulation-driver-spec"]()
+    return ats_input_spec.known_specs.known_specs["simulation-driver-spec"]()
 
 def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
     """Adds objects associated with a domain.
@@ -80,7 +80,7 @@ def add_region(main, region_name, region_type, region_args):
     region_type_name = "region: %s"%region_type
     region_spec_name = "region-%s-spec"%region_type.replace(" ", "-")
 
-    sub_list = rethink.known_specs.known_specs[region_spec_name]()
+    sub_list = ats_input_spec.known_specs.known_specs[region_spec_name]()
     new_region[region_type_name] = sub_list
     sub_list.update(region_args)
     return new_region
@@ -92,7 +92,7 @@ def add_to_all_visualization(main, io_parameter_name, io_value):
     is typically what is desired).  Example usage:
 
     # daily vis
-    add_to_all_visualization(main, "times start period stop", rethink.public.time_in_seconds([0,1,-1], 'd'))
+    add_to_all_visualization(main, "times start period stop", ats_input_spec.public.time_in_seconds([0,1,-1], 'd'))
     """
     for vis in main["visualization"].values():
         vis[io_parameter_name] = io_value
@@ -108,11 +108,11 @@ def time_in_seconds(value, units):
 
 def set_typical_constants(main):
     """Sets atmospheric pressure and gravity, which are basically in everything."""
-    atmos = rethink.known_specs.known_specs["constants-spec"]()
+    atmos = ats_input_spec.known_specs.known_specs["constants-spec"]()
     atmos["value"] = 101325.0
     main["state"]["initial conditions"]["atmospheric pressure"] = atmos
 
-    grav = rethink.known_specs.known_specs["vector-spec"]()
+    grav = ats_input_spec.known_specs.known_specs["vector-spec"]()
     grav["value"] = [0.,0.,-9.80665]
     main["state"]["initial conditions"]["gravity"] = grav
 
@@ -131,7 +131,7 @@ def add_to_all_observations(main, io_parameter_name, io_value):
     is typically what is desired).  Example usage:
 
     # daily vis
-    add_to_all_observations(main, "times start period stop", rethink.public.time_in_seconds([0,1,-1], 'd'))
+    add_to_all_observations(main, "times start period stop", ats_input_spec.public.time_in_seconds([0,1,-1], 'd'))
     """
     for obs in main["observations"].values():
         obs[io_parameter_name] = io_value
@@ -144,7 +144,7 @@ def add_leaf_pk(main, name, parent_list, pk_type):
 
     # add the PKs entry
     pk_type_spec = pk_type.replace(" ","-")+"-spec"
-    pk_entry = rethink.known_specs.known_specs[pk_type_spec]()
+    pk_entry = ats_input_spec.known_specs.known_specs[pk_type_spec]()
     main["PKs"][name] = pk_entry
     return pk_entry
     

@@ -1,4 +1,4 @@
-"""rethink/source_reader.py
+"""ats_input_spec/source_reader.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -12,13 +12,13 @@ function.
 
 """
 
-import rethink.source_reader
+import ats_input_spec.source_reader
 import pytest
 
 # test the parameter construction
 def test_good():
     ps = '* `"my parameter`" ``[double]`` **1.0** my parameter doc'
-    p = rethink.source_reader.parameter_from_lines([ps,])
+    p = ats_input_spec.source_reader.parameter_from_lines([ps,])
     assert(p.name == "my parameter")
     assert(p.ptype is float)
     assert(p.default == 1.0)
@@ -26,7 +26,7 @@ def test_good():
 
 def test_good_no_default():
     ps = '* `"my parameter`" ``[double]`` my parameter doc'
-    p = rethink.source_reader.parameter_from_lines([ps,])
+    p = ats_input_spec.source_reader.parameter_from_lines([ps,])
     assert(p.name == "my parameter")
     assert(p.ptype is float)
     assert(p.default is None)
@@ -34,7 +34,7 @@ def test_good_no_default():
 
 def test_good_no_doc():
     ps = '* `"my parameter`" ``[double]`` '
-    p = rethink.source_reader.parameter_from_lines([ps,])
+    p = ats_input_spec.source_reader.parameter_from_lines([ps,])
     assert(p.name == "my parameter")
     assert(p.ptype is float)
     assert(p.default is None)
@@ -42,7 +42,7 @@ def test_good_no_doc():
 
 def test_good_multiline():
     ps = ['* `"my parameter`" ``[double]`` **1.0** this has a','          multiline docstring']
-    p = rethink.source_reader.parameter_from_lines(ps)
+    p = ats_input_spec.source_reader.parameter_from_lines(ps)
     assert(p.name == "my parameter")
     assert(p.ptype is float)
     assert(p.default == 1.0)
@@ -51,14 +51,14 @@ def test_good_multiline():
 
 def test_good_plist_spec():
     ps = ['* `"my parameter list`" ``[my-spec]`` my spec is cool']
-    p = rethink.source_reader.parameter_from_lines(ps)
+    p = ats_input_spec.source_reader.parameter_from_lines(ps)
     assert(p.name == "my parameter list")
     assert(p.ptype == 'my-spec')
     #assert(p.doc == "my spec is cool")
     
 def test_good_with_spaces():
     ps = '  *       `"my parameter`"        ``[double]``     ** 1.0   **    my parameter doc    '
-    p = rethink.source_reader.parameter_from_lines([ps,])
+    p = ats_input_spec.source_reader.parameter_from_lines([ps,])
     assert(p.name == "my parameter")
     assert(p.ptype is float)
     assert(p.default == 1.0)
@@ -67,17 +67,17 @@ def test_good_with_spaces():
 def test_bad_name():
     ps = '  *  my parameter ``[double]`` **1.0** my parameter doc'
     with pytest.raises(RuntimeError):
-        p = rethink.source_reader.parameter_from_lines([ps,])
+        p = ats_input_spec.source_reader.parameter_from_lines([ps,])
 
 def test_bad_type():
     ps = '  *  `"my parameter`" ``no-bracket`` **1.0** my parameter doc'
     with pytest.raises(RuntimeError):
-        p = rethink.source_reader.parameter_from_lines([ps,])
+        p = ats_input_spec.source_reader.parameter_from_lines([ps,])
 
 def test_bad_default():
     ps = '  *  `"my parameter`" ``[float]`` **abc** my parameter doc'
     with pytest.raises(RuntimeError):
-        p = rethink.source_reader.parameter_from_lines([ps,])
+        p = ats_input_spec.source_reader.parameter_from_lines([ps,])
 
 spec_text = """
 * `"y0`" ``[double]`` y_0 in f = y0 + g * (x - x0)
@@ -87,7 +87,7 @@ spec_text = """
 def test_read_multiple():
     assert(len(spec_text) == 5)
     print("My length in test:", len(spec_text))
-    i, name, speclist, others = rethink.source_reader.read_this_scope(0,spec_text)
+    i, name, speclist, others = ats_input_spec.source_reader.read_this_scope(0,spec_text)
     assert(len(speclist) == 3)
 
 
@@ -105,7 +105,7 @@ def test_read_multiple_specs():
     specs = []
     i = 0
     while i < len(spec_text2):
-        i, specname, objects, others = rethink.source_reader.read_this_scope(i,spec_text2)
+        i, specname, objects, others = ats_input_spec.source_reader.read_this_scope(i,spec_text2)
         if specname is None:
             filebase = os.path.split(filename)[-1][:-3]
             specname = to_specname(filebase)
@@ -117,15 +117,15 @@ def test_read_multiple_specs():
     
     
 def test_to_specname():
-    assert(rethink.source_reader.to_specname("BasicTest") == "basic-test-spec")
-    assert(rethink.source_reader.to_specname("SecondTest2") == "second-test2-spec")
-    assert(rethink.source_reader.to_specname("SecondTestC") == "second-test-c-spec")
-    assert(rethink.source_reader.to_specname("WRMTest") == "wrm-test-spec")
-    assert(rethink.source_reader.to_specname("EmbeddedWRMTest") == "embedded-wrm-test-spec")
-    assert(rethink.source_reader.to_specname("FinalWRM") == "final-wrm-spec")
-    assert(rethink.source_reader.to_specname("With_Underscore") == "with-underscore-spec")
-    assert(rethink.source_reader.to_specname("BDF_FnBase") == "bdf-fn-base-spec")
-    assert(rethink.source_reader.to_specname("wrm_van_genuchten") == "wrm-van-genuchten-spec")
+    assert(ats_input_spec.source_reader.to_specname("BasicTest") == "basic-test-spec")
+    assert(ats_input_spec.source_reader.to_specname("SecondTest2") == "second-test2-spec")
+    assert(ats_input_spec.source_reader.to_specname("SecondTestC") == "second-test-c-spec")
+    assert(ats_input_spec.source_reader.to_specname("WRMTest") == "wrm-test-spec")
+    assert(ats_input_spec.source_reader.to_specname("EmbeddedWRMTest") == "embedded-wrm-test-spec")
+    assert(ats_input_spec.source_reader.to_specname("FinalWRM") == "final-wrm-spec")
+    assert(ats_input_spec.source_reader.to_specname("With_Underscore") == "with-underscore-spec")
+    assert(ats_input_spec.source_reader.to_specname("BDF_FnBase") == "bdf-fn-base-spec")
+    assert(ats_input_spec.source_reader.to_specname("wrm_van_genuchten") == "wrm-van-genuchten-spec")
 
 
     

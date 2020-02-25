@@ -1,4 +1,4 @@
-"""rethink/__init__.py
+"""ats_input_spec/__init__.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -32,12 +32,12 @@ def set_ats_source(path):
 try:
     set_amanzi_source(os.environ['AMANZI_SRC_DIR'])
 except KeyError:
-    print("AMANZI_SRC_DIR not found in env: be sure to call rethink.set_amanzi_source()")
+    print("AMANZI_SRC_DIR not found in env: be sure to call ats_input_spec.set_amanzi_source()")
 
 try:
     set_ats_source(os.environ['ATS_SRC_DIR'])
 except KeyError:
-    print("ATS_SRC_DIR not found in env: be sure to call rethink.set_ats_source()")
+    print("ATS_SRC_DIR not found in env: be sure to call ats_input_spec.set_ats_source()")
     
     
     

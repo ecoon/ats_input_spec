@@ -1,4 +1,4 @@
-"""rethink/known_specs.py
+"""ats_input_spec/known_specs.py
 
 ATS is released under the three-clause BSD License. 
 The terms of use and "as is" disclaimer for this license are 
@@ -14,9 +14,9 @@ import warnings
 import collections
 import copy
 
-import rethink
-import rethink.source_reader
-import rethink.specs
+import ats_input_spec
+import ats_input_spec.source_reader
+import ats_input_spec.specs
 
 
 
@@ -29,7 +29,7 @@ class ConstValuedDict(collections.MutableMapping):
         # includes specs we can learn on the fly
         if key.endswith("-list"):
             contained = self[key[:-len("-list")]]
-            return rethink.specs.get_typed_list(key, contained)
+            return ats_input_spec.specs.get_typed_list(key, contained)
         else:
             return self._store[key]
             
@@ -48,7 +48,7 @@ class ConstValuedDict(collections.MutableMapping):
 
 known_specs = ConstValuedDict()
 # global type
-known_specs["list"] = rethink.specs.GenericList
+known_specs["list"] = ats_input_spec.specs.GenericList
 
 # known_evaluators = ConstValuedDict()
 # known_pks = ConstValuedDict()
@@ -61,11 +61,11 @@ known_specs["list"] = rethink.specs.GenericList
 #     """Loads all function specs."""
 #     global known_functions
     
-#     path = os.path.join(rethink.AMANZI_SRC_DIR, "src", "functions")
+#     path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src", "functions")
 #     for f in os.listdir(path):
 #         if f.endswith("Function.hh") and not f == "Function.hh":
 #             try:
-#                 spec = rethink.source_reader.read(os.path.join(path,f))
+#                 spec = ats_input_spec.source_reader.read(os.path.join(path,f))
 #             except Exception as err:
 #                 warnings.warn('Error reading "{0}": {1}'.format(f,err))
 #             else:
@@ -74,7 +74,7 @@ known_specs["list"] = rethink.specs.GenericList
                     
 #                 else:
 #                     specname = "function-" + f[:-len("Function.hh")].lower()
-#                     known_functions[specname] = rethink.parameters.ParametersSpec(specname, spec)
+#                     known_functions[specname] = ats_input_spec.parameters.ParametersSpec(specname, spec)
 
 def to_specname(inname):
     chars = []
@@ -100,16 +100,16 @@ def load_specs_from_lines(name, lines):
     """Mostly for testing!"""
     global known_specs
 
-    specs = rethink.source_reader.read_lines(name, lines)
+    specs = ats_input_spec.source_reader.read_lines(name, lines)
     
     for specname, speclist, requirements in specs:
         print("In file: %s got spec %s"%(name,specname))
         if specname.endswith("-typed-spec"):
-            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
         elif specname.endswith("-typedinline-spec"):
-            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
         elif specname.endswith("-spec"):
-            spec = rethink.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
         else:
             raise RuntimeError('Unrecognized spec "%s" from file "%s"'%(specname,name))
         known_specs[specname] = spec
@@ -123,7 +123,7 @@ def load_specs(path, warn_on_empty=False, warn_on_error=True):
             if f.endswith(".hh"):
                 print("Reading file: %s"%f)
                 with open(os.path.join(dirname,f), 'r') as fid:
-                    lines = rethink.source_reader.find_all_comments(fid)
+                    lines = ats_input_spec.source_reader.find_all_comments(fid)
                 load_specs_from_lines(f[:-3], lines)
 
 
@@ -169,7 +169,7 @@ def finish_load():
                     else:
                         default = None
                     assert(suffix not in spec.spec.keys())
-                    spec.spec[suffix] = rethink.specs.PrimitiveParameter(suffix, str, default=default)
+                    spec.spec[suffix] = ats_input_spec.specs.PrimitiveParameter(suffix, str, default=default)
                     oneof = [[v,], [spec.spec[suffix],]]
                     spec.spec_oneofs.append(oneof)
                     spec.spec_oneof_inds.append(None)
@@ -177,12 +177,12 @@ def finish_load():
                             
 
 def load(warn_on_empty=False, warn_on_error=True):
-    amanzi_path = os.path.join(rethink.AMANZI_SRC_DIR, "src")
-    ats_path = os.path.join(rethink.ATS_SRC_DIR, "src")
+    amanzi_path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
+    ats_path = os.path.join(ats_input_spec.ATS_SRC_DIR, "src")
 
     load_specs(amanzi_path, warn_on_empty, warn_on_error)
     load_specs(ats_path, warn_on_empty, warn_on_error)
     finish_load()
 
 def get_known_spec(name, typename):
-    return rethink.specs.DerivedParameter(name, known_specs[typename])
+    return ats_input_spec.specs.DerivedParameter(name, known_specs[typename])
