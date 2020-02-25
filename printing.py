@@ -33,6 +33,8 @@ def to_string(name, obj):
                 filledstr = rethink.colors.UNFILLED + "Empty List" + rethink.colors.RESET
             else:
                 filledstr = rethink.colors.DEFAULT + "Defaults but Empty" + rethink.colors.RESET
+        elif type(obj).__name__.endswith("-list") and len(obj) is 0:
+            filledstr = rethink.colors.UNFILLED + "Empty List" + rethink.colors.RESET
         else:
             filledstr = rethink.colors.UNFILLED + "Not Filled" + rethink.colors.RESET
         return rethink.colors.NAME + name + rethink.colors.RESET + " [{0}] : {1}".format(obj.__name__, filledstr)
@@ -45,6 +47,7 @@ def _help(name, obj, include_optionals=True):
         isoptional = False
 
     try:
+        print(name, type(obj))
         isfilled = obj.is_filled()
     except AttributeError:
         isfilled = False

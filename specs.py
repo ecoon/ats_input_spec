@@ -189,11 +189,8 @@ class _TypedList(GenericList):
         pairs of unfilled objects or unselected oneof branches in the
         spec."""
         # if the list is empty, need at least one item
-        if not self._empty_policy and len(self) is 0:
-            yield "_USER_DEFINED_", self.ContainedPType
-        else:
-            for k,v in super(_TypedList,self).unfilled():
-                yield k,v
+        for k,v in super(_TypedList,self).unfilled():
+            yield k,v
 
     @classmethod
     def set_ptype(cls, known_types):
@@ -201,7 +198,7 @@ class _TypedList(GenericList):
             cls.ContainedPType = known_types[cls.ContainedPType]
 
             
-def get_typed_list(name, ptype, empty_policy=True):
+def get_typed_list(name, ptype, empty_policy=False):
     """Generates a spec for a Typed List.
 
     Argument:

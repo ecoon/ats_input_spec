@@ -264,15 +264,15 @@ def read_this_scope(i, comments):
 def read(filename):
     with open(filename, 'r') as fid:
         comments = find_all_comments(fid)
+    return read_lines(os.path.split(filename)[-1][:-3], comments)
 
+def read_lines(name, comments):
     specs = []
     i = 0
     while i < len(comments):
-        print("looping in read %s with %d"%(filename, i))
         i, specname, objects, reqs = read_this_scope(i,comments)
         if specname is None:
-            filebase = os.path.split(filename)[-1][:-3]
-            specname = to_specname(filebase)
+            specname = to_specname(name)
         if len(objects) > 0:
             specs.append((specname, objects, reqs))
     return specs

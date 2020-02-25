@@ -20,7 +20,7 @@ def _tosizes(list_of_lists_of_lists):
 
 def _check(obj, filled, unfilled, optional=None, oneofs=None):
     if oneofs is None:
-        is_filled = unfilled == 0
+        is_filled = filled > 0 and unfilled == 0
     else:
         is_filled = unfilled + len(oneofs) == 0
     assert(is_filled == obj.is_filled())

@@ -29,11 +29,10 @@ class ConstValuedDict(collections.MutableMapping):
         # includes specs we can learn on the fly
         if key.endswith("-list"):
             contained = self[key[:-len("-list")]]
-            return rethink.specs.get_typed_list(key, contained, True)
+            return rethink.specs.get_typed_list(key, contained)
         else:
             return self._store[key]
             
-    
     def __iter__(self):
         return iter(self._store)
 
@@ -48,6 +47,8 @@ class ConstValuedDict(collections.MutableMapping):
         
 
 known_specs = ConstValuedDict()
+# global type
+known_specs["list"] = rethink.specs.GenericList
 
 # known_evaluators = ConstValuedDict()
 # known_pks = ConstValuedDict()
@@ -95,36 +96,40 @@ def to_specname(inname):
     #print(inname,res)
     return res
 
-def load_specs(path, warn_on_empty=False, warn_on_error=True):
+def load_specs_from_lines(name, lines):
+    """Mostly for testing!"""
     global known_specs
 
-    # global type
-    known_specs["list"] = rethink.specs.GenericList
+    specs = rethink.source_reader.read_lines(name, lines)
+    
+    for specname, speclist, requirements in specs:
+        print("In file: %s got spec %s"%(name,specname))
+        if specname.endswith("-typed-spec"):
+            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
+        elif specname.endswith("-typedinline-spec"):
+            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
+        elif specname.endswith("-spec"):
+            spec = rethink.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
+        else:
+            raise RuntimeError('Unrecognized spec "%s" from file "%s"'%(specname,name))
+        known_specs[specname] = spec
+
+    
+def load_specs(path, warn_on_empty=False, warn_on_error=True):
+    global known_specs
     
     for dirname, subdirs, files in os.walk(path):
         for f in files:
             if f.endswith(".hh"):
-                #try:
                 print("Reading file: %s"%f)
-                specs = rethink.source_reader.read(os.path.join(dirname,f))
-                #except Exception as err:
-                #    print("Error in file: %s"%f)
-                #    #if warn_on_error:
-                #    warnings.warn('Error reading "{0}": {1}'.format(os.path.join(dirname,f),err))
-                #else:
-                if True:
-                    for specname, speclist, requirements in specs:
-                        print("In file: %s got spec %s"%(f,specname))
-                        if specname.endswith("-typed-spec"):
-                            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
-                        elif specname.endswith("-typedinline-spec"):
-                            spec = rethink.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
-                        elif specname.endswith("-spec"):
-                            spec = rethink.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
-                        else:
-                            raise RuntimeError('Unrecognized spec "%s" from file "%s"'%(specname,f))
-                        known_specs[specname] = spec
-                    
+                with open(os.path.join(dirname,f), 'r') as fid:
+                    lines = rethink.source_reader.find_all_comments(fid)
+                load_specs_from_lines(f[:-3], lines)
+
+
+def finish_load():
+    global known_specs
+
     # now a second pass to clean up valid types
     for specname, spec in known_specs.items():
         if specname.endswith("-typed-spec") or specname.endswith("-typedinline-spec"):
@@ -177,7 +182,7 @@ def load(warn_on_empty=False, warn_on_error=True):
 
     load_specs(amanzi_path, warn_on_empty, warn_on_error)
     load_specs(ats_path, warn_on_empty, warn_on_error)
-    
+    finish_load()
 
 def get_known_spec(name, typename):
     return rethink.specs.DerivedParameter(name, known_specs[typename])
