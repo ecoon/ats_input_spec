@@ -13,12 +13,9 @@ The public interface of the ats_input_spec package.
 import ats_input_spec.specs
 import ats_input_spec.known_specs
 
-ats_input_spec.known_specs.load()
-
-
 def get_main():
     """Gets the top level spec and all non-optional sub-specs."""
-    return ats_input_spec.known_specs.known_specs["simulation-driver-spec"]()
+    return ats_input_spec.known_specs.known_specs["main-spec"]()
 
 def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
     """Adds objects associated with a domain.
@@ -53,13 +50,11 @@ def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
     # add a dimension-sized region of large extent for "all"
     region_name = ''
     if domain_name == "domain":
-        region_name = "entire domain"
+        region_name = "computational domain"
     else:
-        region_name = "entire %s domain"%domain_name
-    box_pars = {"low coordinate":[-1e80 for i in range(dimension)],
-                "high coordinate":[1e80 for i in range(dimension)]}
+        region_name = "%s domain"%domain_name
 
-    add_region(main, region_name, "box", box_pars)
+    add_region(main, region_name, "all", dict())
 
     # add a visualization sublist for this domain
     main['visualization'].append_empty(domain_name)
@@ -75,17 +70,11 @@ def add_region(main, region_name, region_type, region_args):
       region_pars       | Dictionary of extra parameters needed by the spec.
     """
     new_region = main['regions'].append_empty(region_name)
-
-    # mangle the spec name into the expected type name
-    region_type_name = "region: %s"%region_type
-    region_spec_name = "region-%s-spec"%region_type.replace(" ", "-")
-
-    sub_list = ats_input_spec.known_specs.known_specs[region_spec_name]()
-    new_region[region_type_name] = sub_list
-    sub_list.update(region_args)
+    new_region.set_type('region', region_type)
+    new_region.get_sublist('region').update(region_args)
     return new_region
 
-def add_to_all_visualization(main, io_parameter_name, io_value):
+def add_to_all_visualization(main, io_parameter_name, io_value, io_units=None):
     """Adds a visualization parameter to all vis specs. 
 
     This makes it easier to vis all domains at the same times (which
@@ -96,6 +85,8 @@ def add_to_all_visualization(main, io_parameter_name, io_value):
     """
     for vis in main["visualization"].values():
         vis[io_parameter_name] = io_value
+        if io_units is not None:
+            vis[io_parameter_name+' units'] = io_units
     
 def time_in_seconds(value, units):
     """Convenient converter for time in seconds"""
@@ -105,14 +96,14 @@ def time_in_seconds(value, units):
         return value * unit_conv[units]
     else:
         return [v*unit_conv[units] for v in value]
-
+    
 def set_typical_constants(main):
     """Sets atmospheric pressure and gravity, which are basically in everything."""
-    atmos = ats_input_spec.known_specs.known_specs["constants-spec"]()
+    atmos = ats_input_spec.known_specs.known_specs["constants-scalar-spec"]()
     atmos["value"] = 101325.0
     main["state"]["initial conditions"]["atmospheric pressure"] = atmos
 
-    grav = ats_input_spec.known_specs.known_specs["vector-spec"]()
+    grav = ats_input_spec.known_specs.known_specs["constants-vector-spec"]()
     grav["value"] = [0.,0.,-9.80665]
     main["state"]["initial conditions"]["gravity"] = grav
 
@@ -124,7 +115,7 @@ def add_observation(main, name, obs_args=None):
     obs.update(obs_args)
     return obs
 
-def add_to_all_observations(main, io_parameter_name, io_value):
+def add_to_all_observations(main, io_parameter_name, io_value, io_units):
     """Adds a visualization parameter to all vis specs. 
 
     This makes it easier to vis all domains at the same times (which
@@ -135,6 +126,8 @@ def add_to_all_observations(main, io_parameter_name, io_value):
     """
     for obs in main["observations"].values():
         obs[io_parameter_name] = io_value
+        if io_units is not None:
+            obs[io_parameter_name+' units'] = io_units
 
 def add_leaf_pk(main, name, parent_list, pk_type):
     """Adds a PK... time to break something!"""

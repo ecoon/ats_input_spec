@@ -15,10 +15,10 @@ lines1 = """
 ``[my-typed-spec]``
 * `"my type`" ``[string]``
 
-``[my-type-a-spec]``
+``[my-a-spec]``
 * `"a parameter`" ``[string]``
 
-``[my-type-b-spec]``
+``[my-b-spec]``
 * `"b parameter`" ``[string]``
 """.split('\n')
 
@@ -30,7 +30,7 @@ def known1():
     yield None
     ats_input_spec.known_specs.known_specs.clear()
     
-def test_typed_one(known1):
+def test_typed_one1(known1):
     outer = ats_input_spec.known_specs.known_specs['my-typed-spec-list']()
     ats_input_spec.printing.help('my outer', outer)
     assert(not outer.is_filled())
@@ -43,19 +43,21 @@ def test_typed_one(known1):
     ats_input_spec.printing.help('my outer', outer)
 
 
-
-def test_typed_two(known1):
+def test_typed_two1(known1):
     outer = ats_input_spec.known_specs.known_specs['my-typed-spec-list']()
     assert(not outer.is_filled())
     outer.append_empty('my a')
-    outer['my a']['my type'] = 'a'
+    outer['my a'].set_type('my', 'a')
     assert(not outer.is_filled())
 
     outer['my a']['a parameters']['a parameter'] = 'yay'
     assert(outer.is_filled())
+    assert(outer['my a']['my type'] == 'a')
 
     outer.append_empty('my b')
+    # alternate way of setting
     outer['my b']['my type'] = 'b'
+    assert(outer['my b']['my type'] == 'b')
     assert(not outer.is_filled())
 
     with pytest.raises(KeyError):
@@ -67,8 +69,6 @@ def test_typed_two(known1):
     
 
 # type is inline
-
-
 lines2 = """
 ``[top-spec]``
 * `"typedinline list`" ``[my-typedinline-spec-list]``
@@ -76,13 +76,12 @@ lines2 = """
 ``[my-typedinline-spec]``
 * `"my type`" ``[string]``
 
-``[my-type-a-spec]``
+``[my-a-spec]``
 * `"a parameter`" ``[string]``
 
-``[my-type-b-spec]``
+``[my-b-spec]``
 * `"b parameter`" ``[string]``
 """.split('\n')
-
 @pytest.fixture
 def known2():
     ats_input_spec.known_specs.load_specs_from_lines("a2_file", lines2)
@@ -91,12 +90,12 @@ def known2():
     yield None
     ats_input_spec.known_specs.known_specs.clear()
     
-def test_typed_one(known2):
+def test_typed_one2(known2):
     outer = ats_input_spec.known_specs.known_specs['my-typedinline-spec-list']()
     ats_input_spec.printing.help('my outer', outer)
     assert(not outer.is_filled())
     outer.append_empty('a')
-    outer['a']['my type'] = 'a'
+    outer['a'].set_type('my', 'a')
     assert(not outer.is_filled())
 
     outer['a']['a parameter'] = 'yay'
@@ -104,11 +103,11 @@ def test_typed_one(known2):
     ats_input_spec.printing.help('my outer', outer)
 
 
-def test_typed_two(known2):
+def test_typed_two2(known2):
     outer = ats_input_spec.known_specs.known_specs['my-typedinline-spec-list']()
     assert(not outer.is_filled())
     outer.append_empty('my a')
-    outer['my a']['my type'] = 'a'
+    outer['my a'].set_type('my','a')
     assert(not outer.is_filled())
 
     outer['my a']['a parameter'] = 'yay'
@@ -119,13 +118,63 @@ def test_typed_two(known2):
     assert(not outer.is_filled())
     ats_input_spec.printing.help('my outer', outer)
 
-    # with pytest.raises(KeyError):
-    #     outer['my b']['a parameter'] = 'hi'
     outer['my b']['b parameter'] = 'bye'
     assert(outer.is_filled())
 
     ats_input_spec.printing.help('my outer', outer)
 
+
+# type is list
+lines3 = """
+``[top-spec]``
+* `"typed sublist list`" ``[my-typedsublist-spec-list]``
+
+``[my-typedsublist-spec]``
+
+``[my-a-spec]``
+* `"a parameter`" ``[string]``
+
+``[my-b-spec]``
+* `"b parameter`" ``[string]``
+""".split('\n')
+
+@pytest.fixture
+def known3():
+    ats_input_spec.known_specs.load_specs_from_lines("a3_file", lines3)
+    ats_input_spec.known_specs.finish_load()
+    print("Keys: ", list(ats_input_spec.known_specs.known_specs.keys()))
+    yield None
+    ats_input_spec.known_specs.known_specs.clear()
     
-    assert(false)
+def test_typed_one3(known3):
+    outer = ats_input_spec.known_specs.known_specs['my-typedsublist-spec-list']()
+    ats_input_spec.printing.help('my outer', outer)
+    assert(not outer.is_filled())
+    outer.append_empty('my a')
+    outer['my a'].set_type('my', 'a')
+    assert(not outer.is_filled())
+
+    outer['my a']['my: a']['a parameter'] = 'yay'
+    assert(outer.is_filled())
+    ats_input_spec.printing.help('my outer', outer)
+
+
+def test_typed_two3(known3):
+    outer = ats_input_spec.known_specs.known_specs['my-typedsublist-spec-list']()
+    assert(not outer.is_filled())
+    outer.append_empty('my a')
+    outer['my a'].set_type('my', 'a')
+    assert(not outer.is_filled())
+
+    outer['my a']['my: a']['a parameter'] = 'yay'
+    assert(outer.is_filled())
+
+    outer.append_empty('my b')
+    outer['my b']['my type'] = 'b'
+    assert(not outer.is_filled())
+
+    outer['my b']['my: b']['b parameter'] = 'bye'
+    assert(outer.is_filled())
+
+    ats_input_spec.printing.help('my outer', outer)
     

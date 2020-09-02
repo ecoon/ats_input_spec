@@ -11,13 +11,16 @@ the input spec in that file.
 """
 
 import os
+import logging
 import ats_input_spec.xml.primitives
 import ats_input_spec.specs
 
 _begin = "/*!"
 _end = "*/"
 
-_magic_words = ["OR", "ONE OF", "END", "IF", "THEN", "ELSE", "``[", "EVALUATORS"]
+_spec_starters = ["``[", ".. _"]
+_magic_words = ["OR", "ONE OF", "END", "IF", "THEN", "ELSE", "EVALUATORS"] \
+    + _spec_starters
 
 def find_all_comments(stream):
     """Grabs all text contained within _begin, _end pairs."""
@@ -42,12 +45,12 @@ def to_specname(inname):
     
     for i in range(len(name)):
         if name[i].isupper():
-            if i is not 0:
+            if i != 0:
                 if i+1 < len(name) and name[i+1].islower():
                     chars.append("-")
                 elif name[i-1].islower():
                     chars.append("-")
-            elif i is not 0 and i+1 == len(name):
+            elif i != 0 and i+1 == len(name):
                 chars.append("-")
                 
         chars.append(name[i].lower())
@@ -135,7 +138,7 @@ def parameter_from_lines(lines):
         default = ats_input_spec.xml.primitives.valid_primitive_from_string(ptype, default)
 
     if is_primitive:
-        print("Creating a primitive: %s, %r"%(name, default))
+        logging.debug("Creating a primitive: %s, %r"%(name, default))
         return ats_input_spec.specs.PrimitiveParameter(name, ptype, default, optional)
     else:
         return ats_input_spec.specs.DerivedParameter(name, ptype, optional)
@@ -149,7 +152,7 @@ def getnext_param(i,comments):
     reading = True
     while i < len(comments):
         line = comments[i].strip()
-        if len(line) is 0:
+        if len(line) == 0:
             # next line is blank
             return i,parameter_from_lines(p)
         elif line.startswith("*") and not line.startswith("**"):
@@ -235,9 +238,14 @@ def read_this_scope(i, comments):
         if line.startswith("``["):
             specname = line[3:].split("]``")[0]
             i = advance(i+1,comments)
+        elif line.startswith(".. _") and line.endswith("-spec:"):
+            specname = line[4:-1]
+            i = advance(i+2, comments)
+        elif line.startswith(".. _"):
+            i = advance(i+1, comments)
 
     while i < len(comments):
-        line = comments[i]
+        line = comments[i].strip()
         if line.startswith("*") and not line.startswith("**"):
             i, obj = getnext_param(i, comments)
             if type(obj) is str or not obj.name.startswith("_"):
@@ -273,6 +281,5 @@ def read_lines(name, comments):
         i, specname, objects, reqs = read_this_scope(i,comments)
         if specname is None:
             specname = to_specname(name)
-        if len(objects) > 0:
-            specs.append((specname, objects, reqs))
+        specs.append((specname, objects, reqs))
     return specs

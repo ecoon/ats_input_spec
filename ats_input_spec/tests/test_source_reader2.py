@@ -114,6 +114,45 @@ def test_read_multiple_specs():
     assert(len(specs) == 2)
     assert(specs[0][0] == "my-first-spec")
     assert(specs[1][0] == "my-second-spec")
+
+
+spec_text3 = """
+.. _my-new-style-spec:
+.. admonition:: my-new-style-spec
+
+    * `"y0`" ``[double]`` y_0 in f = y0 + g * (x - x0)
+    * `"gradient`" ``[Array(double)]`` g in f = y0 + g * (x - x0)
+    * `"x0`" ``[Array(double)]`` x0 in f = y0 + g * (x - x0)
+""".split('\n')
+def test_new_style_specs():
+    specs = []
+    i = 0
+    while i < len(spec_text3):
+        i, specname, objects, others = ats_input_spec.source_reader.read_this_scope(i,spec_text3)
+        specs.append((specname, objects))
+
+    assert(len(specs) == 1)
+    assert(specs[0][0] == "my-new-style-spec")
+    assert(len(specs[0][1]) == 3)
+
+
+spec_text4 = """
+this
+
+``[an-empty-spec]``
+
+is empty
+""".split('\n')
+def test_empty_spec():
+    specs = []
+    i = 0
+    while i < len(spec_text4):
+        i, specname, objects, others = ats_input_spec.source_reader.read_this_scope(i, spec_text4)
+        specs.append((specname, objects))
+
+    assert(len(specs) == 1)
+    assert(specs[0][0] == "an-empty-spec")
+    assert(len(specs[0][1]) == 0)           
     
     
 def test_to_specname():
