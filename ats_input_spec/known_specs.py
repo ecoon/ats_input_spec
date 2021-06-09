@@ -76,18 +76,22 @@ def _load_specs_from_lines(name, lines):
 
     specs = ats_input_spec.source_reader.read_lines(name, lines)
 
-    for specname, speclist, requirements in specs:
+    for specname, speclist, others in specs:
         logging.debug("In file: %s got spec %s"%(name,specname))
         if specname.endswith("-typed-spec"):
-            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="standard", valid_types_by_name=None, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, others=others,
+                                                 policy_spec_from_type="standard", valid_types_by_name=None)
         elif specname.endswith("-typedinline-spec"):
-            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, others=others,
+                                                 policy_spec_from_type="flat list", valid_types_by_name=None)
+                                                 
         elif specname.endswith("-typedsublist-spec"):
-            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, others=others,
+                                                 policy_spec_from_type="sublist", valid_types_by_name=None)
         elif specname.endswith("-spec"):
-            spec = ats_input_spec.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, others=others)
         else:
-            raise RuntimeError('Unrecognized spec "%s" from file "%s"'%(specname,name))
+            raise RuntimeError('Unrecognized spec "%s" from file "%s" (possibly missing -spec suffix in specname?)'%(specname,name))
         known_specs[specname] = spec
 
     return len(specs)
@@ -103,8 +107,8 @@ def load_specs_from_lines(name, lines, on_error='error'):
         try:
             return _load_specs_from_lines(name, lines)
         except Exception as e:
-            warning.warning(f'Failed loading from "{name}" with error:')
-            warning.warning(f'{e}')
+            warnings.warn(f'Failed loading from "{name}" with error:')
+            warnings.warn(f'{e}')
     elif on_error == 'error':
         return _load_specs_from_lines(name, lines)
     else:
@@ -123,9 +127,9 @@ def load_specs(path, on_empty=None, on_error=None):
                     lines = ats_input_spec.source_reader.find_all_comments(fid)
                 count = load_specs_from_lines(f[:-3], lines, on_error)
                 if count == 0:
-                    if on_error == 'warn':
-                        warning.warning(f'load of "{f[:-3]}" resulted in no specs')
-                    elif on_error == 'error':
+                    if on_empty == 'warn':
+                        warnings.warn(f'load of "{f[:-3]}" resulted in no specs')
+                    elif on_empty == 'error':
                         raise RuntimeError(f'load of "{f[:-3]}" resulted in no specs')
 
 def load_selected_specs(path, selected, on_empty=None, on_error=None):
@@ -173,28 +177,24 @@ def finish_load():
         spec.set_ptype(known_specs)
 
     # set key specs, which allow either suffix or key options
-    for specname, spec in known_specs.items():
-        try:
-            spec_keys = list(spec.spec.keys()) # copy to modify
-        except AttributeError: # not a spec
-            pass
-        else:
-            for k in spec_keys:
-                if k.endswith(" key"):
-                    base = k[:-4]
-                    suffix = base + " suffix"
-                    v = spec.spec_others.pop(k)
-                    if v.default is not None and v.default.startswith("DOMAIN-"):
-                        default = v.default[7:]
-                    else:
-                        default = None
-                    assert(suffix not in spec.spec.keys())
-                    spec.spec[suffix] = ats_input_spec.specs.PrimitiveParameter(suffix, str, default=default)
-                    oneof = [[v,], [spec.spec[suffix],]]
-                    spec.spec_oneofs.append(oneof)
-                    spec.spec_oneof_inds.append(None)
-                
-                            
+    if hasattr(spec, 'option_keys') and spec.option_keys is not None:
+        for (key,default,optional,docstring) in spec.option_keys:
+            suffix_option = key + " suffix"
+            full_key_option = key + " key"
+            if default is not None and v.default.startswith("DOMAIN-"):
+                default = v.default[7:]
+            else:
+                default = None
+
+            spec.spec[suffix_option] = ats_input_spec.specs.PrimitiveParameter(suffix, str, default=default)
+            spec.spec[full_option] = ats_input_spec.specs.PrimitiveParameter(full_key_option, str, default=default)
+
+            oneof = ats_input_spec.specs.OneOfList()
+            oneof.append([spec.spec[suffix],])
+            oneof.append([spec.spec[full_key_option],])
+            spec.spec_oneofs.append(oneof)
+            spec.spec_oneof_inds.append(None)
+
 def load(on_empty=None, on_error='warn'):
     amanzi_path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
     load_specs(amanzi_path, on_empty, on_error)

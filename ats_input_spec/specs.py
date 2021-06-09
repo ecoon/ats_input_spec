@@ -14,6 +14,7 @@ import ats_input_spec.primitives
 import ats_input_spec.colors
 import ats_input_spec.printing
 import copy
+import warnings
 
 class PrimitiveParameter(object):
     """A parameter whose type is a primitive."""
@@ -355,7 +356,7 @@ class _Spec(GenericList):
 
                 # add subspec info
                 subspec_name = value+" parameters"
-                subspec_specname = (name+" "+value).replace(" ","-")+"-spec"
+                subspec_specname = (typename+" "+value).replace(" ","-")+"-spec"
                 try:
                     subspec_ptype = self.valid_types[subspec_specname]
                 except KeyError:
@@ -473,18 +474,24 @@ class _Spec(GenericList):
     @classmethod
     def set_ptype(cls, known_types):
         to_remove = []
-        for k in list(cls.spec_others.keys()): # making a copy to allow modification
-            if k.startswith("INCLUDE-"):
-                # an include
-                to_add = known_types[cls.spec_others[k].ptype]
-                for newk,v in to_add.spec_others.items():
-                    cls.spec_others[newk] = v
-                for newk,v in to_add.spec.items():
-                    cls.spec[newk] = v
-                cls.spec_oneofs.extend(to_add.spec_oneofs)
-                cls.spec_oneof_inds.extend(to_add.spec_oneof_inds)
-                cls.spec_others.pop(k)
-                cls.spec.pop(k)
+        for include in cls.includes:
+            # an include
+            include_ptype = include[0]
+            to_add = known_types[include_ptype]
+            for newk,v in to_add.spec_others.items():
+                cls.spec_others[newk] = v
+            for newk,v in to_add.spec.items():
+                cls.spec[newk] = v
+            cls.spec_oneofs.extend(to_add.spec_oneofs)
+            cls.spec_oneof_inds.extend(to_add.spec_oneof_inds)
+            cls.option_keys.extend(to_add.option_keys)
+            cls.eval_reqs.extend(to_add.eval_reqs)
+
+            # Modifying this list while looping over it is dangerous,
+            # but may be ok?  We don't really want to make a copy, but
+            # want to recursively include our included spec's
+            # includes.
+            cls.includes.extend(to_add.includes)
                 
         for k,v in cls.spec.items():
             v.set_ptype(known_types)
@@ -518,14 +525,14 @@ class _TypedSpec(_Spec):
         # add subspec info
         if self._policy_spec_from_type == "standard":
             subspec_name = "{} parameters".format(value)
-            self.spec_notoneofs[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
-            self.spec[subspec_name] = self.spec_notoneofs[subspec_name]
+            self.spec_others[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
+            self.spec[subspec_name] = self.spec_others[subspec_name]
             self.fill_default(subspec_name)
             super(_TypedSpec, self).__setitem__(name+" type", value)
 
         elif self._policy_spec_from_type == "flat list":
-            for k,v in subspec_ptype.spec_notoneofs.items():
-                self.spec_notoneofs[k] = v
+            for k,v in subspec_ptype.spec_others.items():
+                self.spec_others[k] = v
             for k,v in subspec_ptype.spec.items():
                 self.spec[k] = v
             self.spec_oneofs.extend(subspec_ptype.spec_oneofs)
@@ -534,7 +541,7 @@ class _TypedSpec(_Spec):
 
         elif self._policy_spec_from_type == "sublist":
             subspec_name = "{}: {}".format(name, value)
-            self.spec_notoneofs[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
+            self.spec_others[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
             self.spec[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False) 
             self.fill_default(subspec_name)
 
@@ -555,24 +562,44 @@ class _TypedSpec(_Spec):
             raise ValueError("Unknown typed policy type: {}".format(self._policy_spec_from_type))
 
 
-def get_spec(name, list_of_parameters,
+def get_spec(name, list_of_parameters, others=None,
              policy_not_in_spec="error", policy_spec_from_type=None,
-             valid_types_by_name=None, evaluator_requirements=None):
+             valid_types_by_name=None):
     """Generates a spec for a list of parameters, including optional and 
     defaulted parameters, which may be primitive or derived types.
 
-    Argument:
-      list_of_parameters        | List of PrimitiveParameter or 
-                                |  DerivedParameter objects.
+    Arguments
+    ---------
+    name : str
+      Name of the spec.
+    list_of_parameters : list
+      List of PrimitiveParameter or DerivedParameter objects.
+    others : tuple
+      require_evaluators, keys, includes.  Each are lists.
+    policy_not_in_spec : str, optional (None)
+      If a value is requested that is not in the spec, respond by
+      'error', 'warn', or 'none'
+    policy_spec_from_type : str, optional (None)
+      Where to specify the "type" of a typed object.  Either
+      "standard", "flat list", or "sublist" (or "none"/None).
+    valid_types_by_name : list, optional (None)
+      Not used currently, will be used to specify the valid types.
+
     Returns:
       A class for a spec including these parameters.
+
     """
+    if others is None:
+        evaluators_required = []
+        opt_keys = []
+        include_others = []
+    else:
+        assert(type(others) in [list,tuple])
+        assert(len(others) == 3)
+        (evaluators_required, opt_keys, include_others) = others
 
     if valid_types_by_name is None:
         valid_types_by_name = dict()
-
-    if evaluator_requirements is None:
-        evaluator_requirements = list()
 
     if (policy_spec_from_type is None or policy_spec_from_type == "none"):
         class _MySpec(_Spec):
@@ -583,8 +610,11 @@ def get_spec(name, list_of_parameters,
             spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
             spec_oneof_inds = [None for i in range(len(spec_oneofs))]
             _policy_not_in_spec = policy_not_in_spec
+            _policy_spec_from_type = None
             valid_types = valid_types_by_name
-            eval_reqs = evaluator_requirements
+            eval_reqs = evaluators_required
+            option_keys = opt_keys
+            includes = include_others
             __name__ = name
 
     else:
@@ -598,7 +628,9 @@ def get_spec(name, list_of_parameters,
             _policy_not_in_spec = policy_not_in_spec
             _policy_spec_from_type = policy_spec_from_type
             valid_types = valid_types_by_name
-            eval_reqs = evaluator_requirements
+            eval_reqs = evaluators_required
+            option_keys = opt_keys
+            includes = include_others
             __name__ = name
         
     _MySpec.__name__ = name
@@ -612,16 +644,20 @@ def copy_spec(spec):
     """
     name = spec.__name__
     list_of_parameters = list(spec.spec.values())
-    valid_types_by_name = spec.valid_types.copy()
-    evaluator_requirements = spec.eval_reqs.copy()
+    valid_types_by_name = copy.copy(spec.valid_types)
+    evaluator_requirements = copy.copy(spec.eval_reqs)
+    opt_keys = copy.copy(spec.option_keys)
+    include_others = copy.copy(spec.includes)
+    others = (evaluator_requirements, opt_keys, include_others)
 
     try:
         policy_spec_from_type = spec._policy_spec_from_type
     except AttributeError:
         policy_spec_from_type = None
         
-    return get_spec(spec.__name__, list_of_parameters, spec._policy_not_in_spec, policy_spec_from_type,
-                    valid_types_by_name, evaluator_requirements)
+    return get_spec(spec.__name__, list_of_parameters, others,
+                    spec._policy_not_in_spec, policy_spec_from_type,
+                    valid_types_by_name)
     
 
 

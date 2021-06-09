@@ -19,7 +19,7 @@ import ats_input_spec.printing
 
 @pytest.fixture
 def main():
-    ats_input_spec.known_specs.load()
+    ats_input_spec.known_specs.load(on_error='warn')
     yield ats_input_spec.public.get_main()
     ats_input_spec.known_specs.clear()
 
