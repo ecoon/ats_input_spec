@@ -1,6 +1,8 @@
+import ats_input_spec.known_specs
 import ats_input_spec.printing
 import ats_input_spec.public
 
+ats_input_spec.known_specs.load()
 main = ats_input_spec.public.get_main()
 
 # add a mesh

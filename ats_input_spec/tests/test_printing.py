@@ -78,7 +78,7 @@ def test_help2():
     
 
 def test_help3():
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))

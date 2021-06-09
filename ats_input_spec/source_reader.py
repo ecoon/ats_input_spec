@@ -13,11 +13,20 @@ the input spec in that file.
 import os
 import ats_input_spec.xml.primitives
 import ats_input_spec.specs
+import logging
 
 _begin = "/*!"
 _end = "*/"
 
-_magic_words = ["OR", "ONE OF", "END", "IF", "THEN", "ELSE", "``[", "EVALUATORS"]
+_magic_words = ["OR",
+                "ONE OF",
+                "END",
+                "IF",
+                "THEN",
+                "ELSE",
+                "``[",
+                ".. admonition:",
+                "EVALUATORS"]
 
 def find_all_comments(stream):
     """Grabs all text contained within _begin, _end pairs."""
@@ -42,12 +51,12 @@ def to_specname(inname):
     
     for i in range(len(name)):
         if name[i].isupper():
-            if i is not 0:
+            if i != 0:
                 if i+1 < len(name) and name[i+1].islower():
                     chars.append("-")
                 elif name[i-1].islower():
                     chars.append("-")
-            elif i is not 0 and i+1 == len(name):
+            elif i != 0 and i+1 == len(name):
                 chars.append("-")
                 
         chars.append(name[i].lower())
@@ -57,8 +66,10 @@ def to_specname(inname):
 
 def advance(i,comments):
     """Advances the pointer to the next magic word or parameter"""
+    logging.info(f"advancing!")
     while i < len(comments):
         line = comments[i].strip()
+        logging.debug(f"advancing line: {line}")
         for mw in _magic_words:
             if line.startswith(mw):
                 return i
@@ -142,6 +153,7 @@ def parameter_from_lines(lines):
 
 def getnext_param(i,comments):
     """Reads a Parameter"""
+    logging.debug(f"  reading parameter")
     assert(comments[i].strip().startswith("*"))
 
     p = [comments[i],]
@@ -149,7 +161,7 @@ def getnext_param(i,comments):
     reading = True
     while i < len(comments):
         line = comments[i].strip()
-        if len(line) is 0:
+        if len(line) == 0:
             # next line is blank
             return i,parameter_from_lines(p)
         elif line.startswith("*") and not line.startswith("**"):
@@ -166,17 +178,20 @@ def getnext_param(i,comments):
 
 def getnext_oneof(i, comments):
     """Reads a ONE OF ... OR ... OR ... block"""
+    logging.debug(f"  reading ONE OF")
     assert(comments[i].strip().startswith("ONE OF"))
-    options = []
+    options = ats_input_spec.specs.OneOfList()
     
     while i < len(comments):
         i, junk, objs, junk2 = read_this_scope(i+1, comments)
         assert(junk is None)
         options.append(objs)
 
-        if comments[i].strip().startswith("OR"):
+        line = comments[i].strip()
+        logging.debug(f'in ONE OF, delimiter line = {line}')
+        if line.startswith("OR"):
             continue
-        elif comments[i].strip().startswith("END"):
+        elif line.startswith("END"):
             i += 1
             break
         else:
@@ -192,6 +207,7 @@ def getnext_oneof(i, comments):
 
 def getnext_evaluators(i, comments):
     """Reads a continuous list of required evaluators."""
+    logging.debug(f"  reading EVALUATORS")
     assert(comments[i].strip().startswith("EVALUATORS"))
     reqs = []
     i += 1
@@ -200,32 +216,74 @@ def getnext_evaluators(i, comments):
         i += 1
     return i, reqs
 
-def getnext_or(i, comments):
-    """Throws on naked OR"""
-    assert(comments[i].strip().startswith("OR"))
-    # a naked or is an error
-    raise RuntimeError("naked or")
+def getnext_keys(i, comments):
+    """Reads a continuous list of optional key names."""
+    logging.debug(f"  reading KEYS")
+    assert(comments[i].strip().startswith("KEYS"))
+    reqs = []
+    i += 1
+    while i < len(comments) and \
+          comments[i].strip().startswith("-"):
+        reqs.append(comments[i].strip().split('`"')[1])
+        i += 1
+    return i, reqs
+
+
 
 def getnext_if(i, comments):
     """Reads an IF ... THEN ... ELSE ... ENDIF block"""
+    logging.debug(f"  reading IF")
     assert(comments[i].strip().startswith("IF"))
-    # not yet implemented
-    raise NotImplementedError("not yet implemented")
+    cond_true_false = ats_input_spec.specs.Conditional()
 
-def getnext_then(i,comments):
-    """Reads an IF ... THEN ... ELSE ... ENDIF block"""
-    assert(comments[i].strip().startswith("THEN"))
-    # not yet implemented
-    raise NotImplementedError("not yet implemented")
+    # read the conditional, always present
+    i, junk, objs, junk2 = read_this_scope(i+1, comments)
+    assert(junk is None)
+    if len(objs) != 1:
+        raise RuntimeError('Conditional IF may only have one boolean parameter.')
+    cond_true_false.append(objs)
 
-def getnext_else(i,comments):
-    """Reads an IF ... THEN ... ELSE ... ENDIF block"""
-    assert(comments[i].strip().startswith("ELSE"))
-    # not yet implemented
-    raise NotImplementedError("not yet implemented")
+    line = comments[i].strip()
+    logging.debug(f'in IF, delimiter line = {line}')
+
+    # check for then block
+    if line.startswith("THEN"):
+        i, junk, objs, junk2 = read_this_scope(i+1, comments)
+        assert(junk is None)
+        cond_true_false.append(objs)
+
+        line = comments[i].strip()
+        logging.debug(f'after THEN, delimiter line = {line}')
+    else:
+        # no THEN block
+        cond_true_false.append(list())
+
+    # check for ELSE block
+    if line.startswith("ELSE"):
+        i, junk, objs, junk2 = read_this_scope(i+1, comments)
+        assert(junk is None)
+        cond_true_false.append(objs)
+
+        line = comments[i].strip()
+        logging.debug(f'after ELSE, delimiter line = {line}')
+    else:
+        # no ELSE block
+        cond_true_false.append(list())
+
+    if not line.startswith("END"):
+        raise RuntimeError("Unclosed IF..THEN...ELSE...END block")
+    return i+1, cond_true_false
+
 
 def read_this_scope(i, comments):
+    """Read a single scope starting at line i and ending at either an END
+    or other marker ending the scope (e.g. a line of text that is not
+    indented, isn't a parameter, and doesn't start with a magic word).
+    """
+    scope_begin_i = i
+    logging.debug(f"reading scope starting at line: {i} = {comments[i]}")
     required_evaluators = []
+    optional_keys = []
     objects = []
     specname = None
     i = advance(i, comments)
@@ -234,10 +292,17 @@ def read_this_scope(i, comments):
         line = comments[i].strip()
         if line.startswith("``["):
             specname = line[3:].split("]``")[0]
+            logging.debug(f"found specname: {specname}")
+            i = advance(i+1,comments)
+        elif line.startswith(".. admonition::"):
+            specname = line[len(".. admonition:: "):].strip().strip(':')
+            logging.debug(f"found specname: {specname}")
             i = advance(i+1,comments)
 
     while i < len(comments):
-        line = comments[i]
+        line = comments[i].strip()
+        logging.debug(f"reading line: {line}")
+
         if line.startswith("*") and not line.startswith("**"):
             i, obj = getnext_param(i, comments)
             if type(obj) is str or not obj.name.startswith("_"):
@@ -251,15 +316,20 @@ def read_this_scope(i, comments):
         elif line.startswith("IF"):
             i, obj = getnext_if(i, comments)
             objects.append(obj)
+
         elif line.startswith("EVALUATOR"):
             i, reqs = getnext_evaluators(i, comments)
             required_evaluators.extend(reqs)
+        elif line.startswith("KEYS"):
+            i, reqs = getnext_keys(i, comments)
+            optional_keys.extend(reqs)
         else:
             # exit the scope
             break
         i = advance(i, comments)
         
-    return i, specname, objects, required_evaluators
+    logging.debug(f"done reading scope ranging from {scope_begin_i} to {i}")
+    return i, specname, objects, (required_evaluators, optional_keys)
 
 def read(filename):
     with open(filename, 'r') as fid:

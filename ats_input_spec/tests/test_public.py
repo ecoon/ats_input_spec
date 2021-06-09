@@ -12,12 +12,14 @@ Tests for the public interface, full capability.
 
 
 import pytest
+import ats_input_spec.known_specs
 import ats_input_spec.public
 import ats_input_spec.printing
 
 
 @pytest.fixture
 def main():
+    ats_input_spec.known_specs.load()
     return ats_input_spec.public.get_main()
 
 def test_get_main(main):

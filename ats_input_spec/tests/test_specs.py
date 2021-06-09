@@ -176,7 +176,7 @@ def test_one_of1():
     """Simplest case -- one option in one 'oneof'"""
     my_leaf = []
     my_leaf.append(ats_input_spec.specs.PrimitiveParameter("one", float))
-    my_leaf.append(list())
+    my_leaf.append(ats_input_spec.specs.OneOfList())
     my_leaf[1].append([ats_input_spec.specs.PrimitiveParameter("a", int),])
     my_leaf[1].append([ats_input_spec.specs.PrimitiveParameter("b", int),])
                        
@@ -200,7 +200,7 @@ def test_one_of1():
     
 def test_one_of_with_optional():
     """Simplest case -- one option in one 'oneof'"""
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
@@ -228,7 +228,7 @@ def test_one_of_with_optional():
 
 def test_one_of2():
     """Multiple options in a branch"""
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
@@ -261,7 +261,7 @@ def test_one_of2():
 
 def test_one_of3():
     """Three options"""
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
@@ -298,7 +298,7 @@ def test_one_of3():
 
 def test_shared_option():
     """Three options"""
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
@@ -350,7 +350,7 @@ def test_shared_option():
 
 def test_shared_option2():
     """Three options"""
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
@@ -386,7 +386,7 @@ def test_shared_option2():
     
 def test_shared_option3():
     """Three options"""
-    my_leaf = [list(),]
+    my_leaf = [ats_input_spec.specs.OneOfList(),]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("b", int))
@@ -444,7 +444,7 @@ def test_shared_option3():
     
     
 def test_multiple():
-    my_leaf = [list(),list()]
+    my_leaf = [ats_input_spec.specs.OneOfList(),ats_input_spec.specs.OneOfList()]
     my_leaf[0].append(list())
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("a", int))
     my_leaf[0][0].append(ats_input_spec.specs.PrimitiveParameter("letter_or_number", int))

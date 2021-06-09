@@ -13,6 +13,9 @@ Tests source_reader functionality.
 import ats_input_spec.source_reader
 import pytest
 from unittest import mock
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 # override the parameter_from_lines generator to just do strings for testing
 def parameter_from_lines(lines):
@@ -67,6 +70,7 @@ IF:
 def test_advance():
     assert(ats_input_spec.source_reader.advance(0, t3) == 2)
     assert(ats_input_spec.source_reader.advance(0, t4) == 2)
+
     i = 0
     i = ats_input_spec.source_reader.advance(i, t3)
     assert(i == 2)
@@ -184,7 +188,6 @@ def test_oneof4():
         
 
 # can't do nested yet
-    
 t11 = """
 ONE OF:
 * a 
@@ -238,4 +241,75 @@ def test_read():
 
 
 
+t13 = """
+IF:
+* a
 
+THEN:
+* b
+
+END
+* d
+
+""".split("\n")
+@mock.patch('test_source_reader.ats_input_spec.source_reader.parameter_from_lines', parameter_from_lines)
+def test_ifthen():
+    i = ats_input_spec.source_reader.advance(0, t13)
+    assert(i == 1)
+    i, objs = ats_input_spec.source_reader.getnext_if(i, t13)
+    assert(len(objs) == 3)
+    assert(len(objs[0]) == 1)
+    assert(len(objs[1]) == 1)
+    assert(len(objs[2]) == 0)
+    assert(i == 8)
+
+t14 = """
+IF
+* a
+
+THEN
+* b
+* c
+
+ELSE
+* e
+
+END
+* d
+
+""".split("\n")
+@mock.patch('test_source_reader.ats_input_spec.source_reader.parameter_from_lines', parameter_from_lines)
+def test_ifthen2():
+    i = ats_input_spec.source_reader.advance(0, t14)
+    assert(i == 1)
+    i, objs = ats_input_spec.source_reader.getnext_if(i, t14)
+    assert(len(objs) == 3)
+    assert(len(objs[0]) == 1)
+    assert(len(objs[1]) == 2)
+    assert(len(objs[2]) == 1)
+    assert(i == 12)
+    
+
+t15 = """
+IF
+* a
+
+ELSE
+* e
+
+END
+* d
+
+""".split("\n")
+@mock.patch('test_source_reader.ats_input_spec.source_reader.parameter_from_lines', parameter_from_lines)
+def test_ifthen3():
+    i = ats_input_spec.source_reader.advance(0, t15)
+    assert(i == 1)
+    i, objs = ats_input_spec.source_reader.getnext_if(i, t15)
+    assert(len(objs) == 3)
+    assert(len(objs[0]) == 1)
+    assert(len(objs[1]) == 0)
+    assert(len(objs[2]) == 1)
+    assert(i == 8)
+    
+    

@@ -102,7 +102,19 @@ def _help(name, obj, include_optionals=True):
                 oneof_lines.extend(["  "+l for opt in opts for l in _help(opt.name,opt,include_optionals)])
                 oneof_lines.append("OR:")
             oneof_lines.pop()
-        
+
+    cond_lines = []
+    if hasattr(obj, "spec_conditionals"):
+        for cond in obj.spec_conditionals:
+            if cond[0][0].name not in obj.keys():
+                cond_lines.extend(["CONDITIONAL: "+l for l in _help(cond[0][0].name,cond[0][0],True)])
+            else:
+                v = obj[cond[0][0].name].value
+                if v == True:
+                    cond_lines.extend([l for opt in cond[1] for l in _help(opt.name,opt,include_optionals)])
+                else:
+                    cond_lines.extend([l for opt in cond[2] for l in _help(opt.name,opt,include_optionals)])
+
     lines = [header,]
     if len(filled) > 0:
         #lines.append("  Filled:")

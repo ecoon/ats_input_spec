@@ -9,10 +9,11 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Definitions of types that are collections of other parameters.
 
 """
-import collections
+import collections.abc
 import ats_input_spec.primitives
 import ats_input_spec.colors
 import ats_input_spec.printing
+import copy
 
 class PrimitiveParameter(object):
     """A parameter whose type is a primitive."""
@@ -100,7 +101,7 @@ def _flatten(container):
             yield i
     
 
-class GenericList(collections.MutableMapping):
+class GenericList(collections.abc.MutableMapping):
     __name__ = "list"
     """Base class for specs."""
     def __init__(self):
@@ -167,19 +168,20 @@ class _TypedList(GenericList):
             self.__setitem__(name, None)
             return None
         else:
-            self.__setitem__(name,self.ContainedPType())
+            self.__setitem__(name,copy_spec(self.ContainedPType)())
             return self[name]
 
     def __setitem__(self, key, value):
         if self._primitive:
             value = ats_input_spec.primitives.valid_from_type(self.ContainedPType, value)
         else:
-            assert(type(value) is self.ContainedPType)                
+            #assert(type(value) is self.ContainedPType)
+            pass
         super(_TypedList,self).__setitem__(key, value)
 
     def is_filled(self):
         """Is this list potentially complete?"""
-        if len(self) is 0:
+        if len(self) == 0:
             return self._empty_policy
         else:
             return super(_TypedList,self).is_filled()
@@ -225,7 +227,7 @@ def get_typed_list(name, ptype, empty_policy=False):
 class _Spec(GenericList):
     def __init__(self):
         super(_Spec,self).__init__()
-        for k,p in self.spec_notoneofs.items():
+        for k,p in self.spec_others.items():
             if not p.is_optional() and not ats_input_spec.primitives.is_primitive(p.ptype):
 #            if not p.is_optional():
                 self.fill_default(k)
@@ -237,7 +239,7 @@ class _Spec(GenericList):
                 return False
             elif not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
                 return False
-        for k,p in self.spec_notoneofs.items():
+        for k,p in self.spec_others.items():
             if not (k in self.keys() or p.is_optional()):
                 return False
         for i,oneof in enumerate(self.spec_oneofs):
@@ -251,7 +253,8 @@ class _Spec(GenericList):
                         break
                 if not any_full:
                     return False
-        
+
+        # nothing special to do for conditionals        
         return True
 
     def fill_default(self, name):
@@ -291,15 +294,46 @@ class _Spec(GenericList):
                 super(_Spec,self).__setitem__(name, value)
                 
         else:
-            # check if in a oneof
-            if name not in self.spec_notoneofs.keys():
+            if name not in self.spec_others.keys():
+                # requested a parameter that is not in the other list
+                # check if it is in a THEN or ELSE block and error about setting the conditional
+                for j, conditional in enumerate(self.spec_conditionals):
+                    cond = conditional[0]
+                    if name == cond.name:
+                        assert(type(value) is bool)
+                    
+                    for i, opt in enumerate(conditional[1]):
+                        if name in (p.name for p in opt):
+                            if cond.value == True:
+                                pass
+                            elif cond.value == False:
+                                raise RuntimeError('Attempting to set a parameter in a THEN '
+                                                   'block but the conditional was set to FALSE: "{cond.name}"')
+                            else:
+                                raise RuntimeError('Attempting to set a parameter in a THEN '
+                                                   'block without first setting the IF block '
+                                                   'conditional value to TRUE: "{cond.name}"')
+                            
+                    for i, opt in enumerate(conditional[2]):
+                        if name in (p.name for p in opt):
+                            if cond.value == False:
+                                pass
+                            elif cond.value == True:
+                                raise RuntimeError('Attempting to set a parameter in an ELSE '
+                                                   'block but the conditional was set to TRUE: "{cond.name}"')
+                            else:
+                                raise RuntimeError('Attempting to set a parameter in an ELSE '
+                                                   'block without first setting the IF block '
+                                                   'conditional value to FALSE: "{cond.name}"')
+            
+                # check if in a oneof
                 for j,oneof in enumerate(self.spec_oneofs):
                     matches = []
                     for i,opt in enumerate(oneof):
                         if name in (p.name for p in opt):
                             matches.append(i)
 
-                    if len(matches) is 0:
+                    if len(matches) == 0:
                         pass
                     elif len(matches) == 1:
                         if self.spec_oneof_inds[j] is not None and matches[0] not in self.spec_oneof_inds[j]:
@@ -316,6 +350,7 @@ class _Spec(GenericList):
             # check if a type
             if self._policy_spec_from_type is not None and name.endswith(" type"):
                 assert(type(value) is str)
+                typename = name[0:-len(" type")]
 
                 # add subspec info
                 subspec_name = value+" parameters"
@@ -326,17 +361,16 @@ class _Spec(GenericList):
                     raise KeyError('Typed spec "%s" with value "%s" does not have a valid spec for "%s"'%(name,value,subspec_specname))
                 else:
                     if self._policy_spec_from_type == "sublist":
-                        self.spec_notoneofs[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
-                        self.spec[subspec_name] = self.spec_notoneofs[subspec_name]
+                        self.spec_others[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
+                        self.spec[subspec_name] = self.spec_others[subspec_name]
                         self.fill_default(subspec_name)
                     elif self._policy_spec_from_type == "flat list":
-                        for k,v in subspec_ptype.spec_notoneofs.items():
-                            self.spec_notoneofs[k] = v
+                        for k,v in subspec_ptype.spec_others.items():
+                            self.spec_others[k] = v
                         for k,v in subspec_ptype.spec.items():
                             self.spec[k] = v
                         self.spec_oneofs.extend(subspec_ptype.spec_oneofs)
                         self.spec_oneof_inds.extend(subspec_ptype.spec_oneof_inds)
-                        
                             
             # insert it already                
             self._setitem(name, pp.ptype, value)
@@ -349,7 +383,7 @@ class _Spec(GenericList):
         for k,v in super(_Spec,self).unfilled():
             yield k,v
         # non-optional parameters not yet set/filled
-        for k,v in self.spec_notoneofs.items():
+        for k,v in self.spec_others.items():
             if k not in self.keys() and not v.is_optional():
                 yield k,v
         # non-optional parameters in selected oneof branches
@@ -360,11 +394,30 @@ class _Spec(GenericList):
                 for opt in oneofs[self.spec_oneof_inds[i][0]]:
                     if opt.name not in self.keys() and not opt.is_optional():
                         yield opt.name, opt
+        # conditionals
+        for i,cond in enumerate(self.spec_conditionals):
+            if cond[0][0].name not in self.keys() and not cond[0][0].is_optional():
+                yield "if conditional %r"%i, "if conditional %r"%i
+            else:
+                k = cond[0][0].name
+                if k in self.keys():
+                    v = self[k].value
+                else:
+                    v = cond[0][0].default
+                if v == True:
+                    for opt in cond[1]:
+                        if opt.name not in self.keys() and not opt.is_optional():
+                            yield opt.name, opt
+                elif v == False:
+                    for opt in cond[2]:
+                        if opt.name not in self.keys() and not opt.is_optional():
+                            yield opt.name, opt
 
+                        
     def optional(self):
         """Returns a generator to (name, ptype) optional (but not filled) parameters."""
         # optional parameters not yet set/filled
-        for k,v in self.spec_notoneofs.items():
+        for k,v in self.spec_others.items():
             if k not in self.keys() and v.is_optional():
                 yield k,v
 
@@ -374,6 +427,21 @@ class _Spec(GenericList):
                 for p in oneofs[self.spec_oneof_inds[i][0]]:
                     if p.name not in self.keys() and p.is_optional():
                         yield p.name, p
+
+        # conditionals
+        for i,cond in enumerate(self.spec_conditionals):
+            if cond[0][0].name not in self.keys() and cond[0][0].is_optional():
+                yield cond[0][0].name, cond[0][0]
+            elif cond[0][0].name in self.keys():
+                v = self[k].value
+                if v == True:
+                    for opt in cond[1]:
+                        if opt.name not in self.keys() and opt.is_optional():
+                            yield opt.name, opt
+                elif v == False:
+                    for opt in cond[2]:
+                        if opt.name not in self.keys() and opt.is_optional():
+                            yield opt.name, opt
                         
                 
     def oneofs(self):
@@ -404,27 +472,34 @@ class _Spec(GenericList):
     @classmethod
     def set_ptype(cls, known_types):
         to_remove = []
-        for k in list(cls.spec_notoneofs.keys()): # making a copy to allow modification
+        for k in list(cls.spec_others.keys()): # making a copy to allow modification
             if k.startswith("INCLUDE-"):
                 # an include
-                to_add = known_types[cls.spec_notoneofs[k].ptype]
-                for newk,v in to_add.spec_notoneofs.items():
-                    cls.spec_notoneofs[newk] = v
+                to_add = known_types[cls.spec_others[k].ptype]
+                for newk,v in to_add.spec_others.items():
+                    cls.spec_others[newk] = v
                 for newk,v in to_add.spec.items():
                     cls.spec[newk] = v
                 cls.spec_oneofs.extend(to_add.spec_oneofs)
                 cls.spec_oneof_inds.extend(to_add.spec_oneof_inds)
-                cls.spec_notoneofs.pop(k)
+                cls.spec_others.pop(k)
                 cls.spec.pop(k)
                 
         for k,v in cls.spec.items():
             v.set_ptype(known_types)
 
-                
 
+class Conditional(list):
+    """Dummy class for naming conditionals"""
+    pass
+
+class OneOfList(list):
+    """Dummy class for naming OneOf parameters"""
+    pass
     
 
-def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_from_type=None,
+def get_spec(name, list_of_parameters,
+             policy_not_in_spec="error", policy_spec_from_type=None,
              valid_types_by_name=None, evaluator_requirements=None):
     """Generates a spec for a list of parameters, including optional and 
     defaulted parameters, which may be primitive or derived types.
@@ -447,8 +522,9 @@ def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_f
     class _MySpec(_Spec):
         """A spec, or list of requirements to fill an input parameter set."""
         spec = {p.name:p for p in _flatten(list_of_parameters)}
-        spec_notoneofs = {p.name:p for p in list_of_parameters if type(p) is not list}
-        spec_oneofs = [p for p in list_of_parameters if type(p) is list]
+        spec_others = {p.name:p for p in list_of_parameters if type(p) not in [OneOfList, Conditional]}
+        spec_oneofs = [p for p in list_of_parameters if type(p) is OneOfList]
+        spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
         spec_oneof_inds = [None for i in range(len(spec_oneofs))]
         _policy_not_in_spec = policy_not_in_spec
         _policy_spec_from_type = policy_spec_from_type
@@ -458,7 +534,22 @@ def get_spec(name, list_of_parameters, policy_not_in_spec="error", policy_spec_f
     _MySpec.__name__ = name
     return _MySpec
 
-
+def copy_spec(MySpec):
+    """Copies a MySpec object to create a unique spec that can be extended for typed objects."""
+    class _MySpec(_Spec):
+        """A spec, or list of requirements to fill an input parameter set."""
+        spec = copy.copy(MySpec.spec)
+        spec_others = copy.copy(MySpec.spec_others)
+        spec_oneofs = copy.copy(MySpec.spec_oneofs)
+        spec_conditionals = copy.copy(MySpec.spec_conditionals)
+        spec_oneof_inds = copy.copy(MySpec.spec_oneof_inds)
+        _policy_not_in_spec = copy.copy(MySpec._policy_not_in_spec)
+        _policy_spec_from_type = copy.copy(MySpec._policy_spec_from_type)
+        valid_types = copy.copy(MySpec.valid_types)
+        eval_reqs = copy.copy(MySpec.eval_reqs)
+        __name__ = MySpec.__name__
+    _MySpec.__name__ = MySpec.__name__
+    return _MySpec
 
 
 

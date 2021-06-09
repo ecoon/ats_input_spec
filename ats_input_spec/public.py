@@ -13,12 +13,12 @@ The public interface of the ats_input_spec package.
 import ats_input_spec.specs
 import ats_input_spec.known_specs
 
-ats_input_spec.known_specs.load()
+#ats_input_spec.known_specs.load()
 
 
 def get_main():
     """Gets the top level spec and all non-optional sub-specs."""
-    return ats_input_spec.known_specs.known_specs["simulation-driver-spec"]()
+    return ats_input_spec.known_specs.known_specs["main-spec"]()
 
 def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
     """Adds objects associated with a domain.

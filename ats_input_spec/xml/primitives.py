@@ -31,10 +31,21 @@ def valid_float_from_string(value):
 
 
 def valid_int_from_string(value):
+    if 'e' in value:
+        left_right = value.split('e')
+        if (len(left_right) != 2):
+            raise ValueError("Parameter of type int with invalid value \"%s\""%str(value))
+        try:
+            left = valid_int_from_string(left_right[0])
+            right = valid_int_from_string(left_right[1])
+        except ValueError:
+            raise ValueError("Parameter of type int with invalid value \"%s\""%str(value))
+        return left * 10**right
+        
     try:
         retval = int(value)
     except ValueError:
-        raise RuntimeError("Parameter of type double with invalid value \"%s\""%str(value))
+        raise ValueError("Parameter of type int with invalid value \"%s\""%str(value))
     return retval
 
 
