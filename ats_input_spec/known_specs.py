@@ -10,6 +10,7 @@ Singleton dictionaries of specs used in factories.
 """
 import os
 import warnings
+import logging
 
 import collections.abc
 import copy
@@ -18,16 +19,19 @@ import ats_input_spec
 import ats_input_spec.source_reader
 import ats_input_spec.specs
 
-
 class ConstValuedDict(collections.abc.MutableMapping):
-    """A dictionary that returns by copy to keep values pristine."""
+    """A dictionary that returns by copy to keep values pristine.  
+
+    UMMMM This isn't true?
+    """
     def __init__(self, *args, **kwargs):
         self._store = dict(*args, **kwargs)
+        self['list'] = ats_input_spec.specs.GenericList
 
     def __getitem__(self, key):
         # includes specs we can learn on the fly
-        if key.endswith("-list"):
-            contained = self[key[:-len("-list")]]
+        if key.endswith('-list'):
+            contained = self[key[:-len('-list')]]
             return ats_input_spec.specs.get_typed_list(key, contained)
         else:
             return self._store[key]
@@ -44,6 +48,8 @@ class ConstValuedDict(collections.abc.MutableMapping):
     def __setitem__(self, key, value):
         self._store[key] = value
         
+
+known_specs = ConstValuedDict()
 
 def to_specname(inname):
     chars = []
@@ -62,7 +68,6 @@ def to_specname(inname):
         chars.append(name[i].lower())
     res =  "".join(chars)+"-spec"
     res = res.replace("--", "-")
-    #print(inname,res)
     return res
 
 def _load_specs_from_lines(name, lines):
@@ -72,11 +77,13 @@ def _load_specs_from_lines(name, lines):
     specs = ats_input_spec.source_reader.read_lines(name, lines)
 
     for specname, speclist, requirements in specs:
-        print("In file: %s got spec %s"%(name,specname))
+        logging.debug("In file: %s got spec %s"%(name,specname))
         if specname.endswith("-typed-spec"):
-            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
+            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="standard", valid_types_by_name=None, evaluator_requirements=requirements)
         elif specname.endswith("-typedinline-spec"):
             spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="flat list", valid_types_by_name=None, evaluator_requirements=requirements)
+        elif specname.endswith("-typedsublist-spec"):
+            spec = ats_input_spec.specs.get_spec(specname, speclist, policy_spec_from_type="sublist", valid_types_by_name=None, evaluator_requirements=requirements)
         elif specname.endswith("-spec"):
             spec = ats_input_spec.specs.get_spec(specname, speclist, evaluator_requirements=requirements)
         else:
@@ -104,13 +111,14 @@ def load_specs_from_lines(name, lines, on_error='error'):
         raise ValueError('Invalid value for on_error')
 
     
+
 def load_specs(path, on_empty=None, on_error=None):
     global known_specs
     
     for dirname, subdirs, files in os.walk(path):
         for f in files:
             if f.endswith(".hh") and not f.endswith("_reg.hh"):
-                print("Reading file: %s"%f)
+                logging.debug("Reading file: %s"%f)
                 with open(os.path.join(dirname,f), 'r') as fid:
                     lines = ats_input_spec.source_reader.find_all_comments(fid)
                 count = load_specs_from_lines(f[:-3], lines, on_error)
@@ -119,7 +127,6 @@ def load_specs(path, on_empty=None, on_error=None):
                         warning.warning(f'load of "{f[:-3]}" resulted in no specs')
                     elif on_error == 'error':
                         raise RuntimeError(f'load of "{f[:-3]}" resulted in no specs')
-                    
 
 def load_selected_specs(path, selected, on_empty=None, on_error=None):
     global known_specs
@@ -138,7 +145,7 @@ def load_selected_specs(path, selected, on_empty=None, on_error=None):
 def finish_load():
     global known_specs
 
-    # now a second pass to clean up valid types
+    # set valid types for typed specs
     for specname, spec in known_specs.items():
         if specname.endswith("-typed-spec") or \
            specname.endswith("-typedinline-spec"):
@@ -151,17 +158,21 @@ def finish_load():
                         if k.startswith(prefix):
                             valids[k] = v
             spec.valid_types = valids
+        elif specname.endswith("-typedsublist-spec"):
+            valids = dict()
+            prefix = specname[:-len("-typedsublist-spec")]
+            for k,v in known_specs.items():
+                if k.startswith(prefix) and k not in [f'{prefix}-typedsublist-spec',
+                                                      f'{prefix}-typedsublist-spec-list',
+                                                      f'{prefix}-spec']:
+                    valids[k] = v
+            spec.valid_types = valids
 
-    # now a third pass to set ptypes
+    # set ptypes
     for specname, spec in known_specs.items():
         spec.set_ptype(known_specs)
 
-    # do a pass to set key specs, which allow either suffix or key options
-    try:
-        print(known_specs["pk-physical-default-spec"].spec.keys())
-        print(known_specs["pk-physical-default-spec"].spec_others.keys())
-    except KeyError:
-        pass
+    # set key specs, which allow either suffix or key options
     for specname, spec in known_specs.items():
         try:
             spec_keys = list(spec.spec.keys()) # copy to modify
@@ -184,23 +195,21 @@ def finish_load():
                     spec.spec_oneof_inds.append(None)
                 
                             
-
-def load(on_empty=None, on_error=None):
+def load(on_empty=None, on_error='warn'):
     amanzi_path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
-    ats_path = os.path.join(ats_input_spec.ATS_SRC_DIR, "src")
-
     load_specs(amanzi_path, on_empty, on_error)
-    load_specs(ats_path, on_empty, on_error)
     finish_load()
 
 def load_selected(files, on_empty=None, on_error=None):
     amanzi_path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
-    ats_path = os.path.join(ats_input_spec.ATS_SRC_DIR, "src")
-
     load_selected_specs(amanzi_path, files, on_empty, on_error)
-    load_selected_specs(ats_path, files, on_empty, on_error)
     finish_load()
+    
+def clear():
+    global known_specs
+    known_specs = ConstValuedDict()
 
+    
 def get_known_spec(name, typename):
     return ats_input_spec.specs.DerivedParameter(name, known_specs[typename])
 

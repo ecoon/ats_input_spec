@@ -20,7 +20,8 @@ import ats_input_spec.printing
 @pytest.fixture
 def main():
     ats_input_spec.known_specs.load()
-    return ats_input_spec.public.get_main()
+    yield ats_input_spec.public.get_main()
+    ats_input_spec.known_specs.clear()
 
 def test_get_main(main):
     pass

@@ -162,7 +162,11 @@ class GenericList(collections.abc.MutableMapping):
 # Class and contructors for a list with a type
 class _TypedList(GenericList):
     def append_empty(self, name):
-        """Append an empty object of type given by my type to the list."""
+        """Append an empty object of type given by my type to the list.
+
+        Typed objects change their own spec.  To do this without
+        affecting all others, we have to create a new class for each one.
+        """
         assert(name not in self.keys())
         if self._primitive:
             self.__setitem__(name, None)
@@ -174,9 +178,6 @@ class _TypedList(GenericList):
     def __setitem__(self, key, value):
         if self._primitive:
             value = ats_input_spec.primitives.valid_from_type(self.ContainedPType, value)
-        else:
-            #assert(type(value) is self.ContainedPType)
-            pass
         super(_TypedList,self).__setitem__(key, value)
 
     def is_filled(self):
@@ -497,6 +498,62 @@ class OneOfList(list):
     """Dummy class for naming OneOf parameters"""
     pass
     
+class _TypedSpec(_Spec):
+    def __init__(self):
+        super(_Spec,self).__init__()
+
+    def __setitem__(self, name, value):
+        if name.endswith(" type"):
+            self.set_type(name[:-len(" type")], value)
+        else:
+            super(_TypedSpec, self).__setitem__(name, value)
+
+    def set_type(self, name, value):
+        subspec_specname = "{}-{}-spec".format(name,value).replace(" ","-").replace("_","-")
+        try:
+            subspec_ptype = self.valid_types[subspec_specname]
+        except KeyError:
+            raise KeyError('Typed spec "%s" with value "%s" does not have a valid spec for "%s"'%(name,value,subspec_specname))
+
+        # add subspec info
+        if self._policy_spec_from_type == "standard":
+            subspec_name = "{} parameters".format(value)
+            self.spec_notoneofs[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
+            self.spec[subspec_name] = self.spec_notoneofs[subspec_name]
+            self.fill_default(subspec_name)
+            super(_TypedSpec, self).__setitem__(name+" type", value)
+
+        elif self._policy_spec_from_type == "flat list":
+            for k,v in subspec_ptype.spec_notoneofs.items():
+                self.spec_notoneofs[k] = v
+            for k,v in subspec_ptype.spec.items():
+                self.spec[k] = v
+            self.spec_oneofs.extend(subspec_ptype.spec_oneofs)
+            self.spec_oneof_inds.extend(subspec_ptype.spec_oneof_inds)
+            super(_TypedSpec, self).__setitem__(name+" type", value)
+
+        elif self._policy_spec_from_type == "sublist":
+            subspec_name = "{}: {}".format(name, value)
+            self.spec_notoneofs[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
+            self.spec[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False) 
+            self.fill_default(subspec_name)
+
+        else:
+            raise ValueError("Unknown typed policy type: {}".format(self._policy_spec_from_type))
+
+    def get_sublist(self, name):
+        if self._policy_spec_from_type == "standard":
+            value = self[name+" type"]
+            return self[value+" parameters"]
+        elif self._policy_spec_from_type == "flat list":
+            return self
+        elif self._policy_spec_from_type == "sublist":
+            assert(len(self) == 1)
+            return list(self.values())[0]
+
+        else:
+            raise ValueError("Unknown typed policy type: {}".format(self._policy_spec_from_type))
+
 
 def get_spec(name, list_of_parameters,
              policy_not_in_spec="error", policy_spec_from_type=None,
@@ -510,8 +567,6 @@ def get_spec(name, list_of_parameters,
     Returns:
       A class for a spec including these parameters.
     """
-    if policy_spec_from_type == "none":
-        policy_spec_from_type = None
 
     if valid_types_by_name is None:
         valid_types_by_name = dict()
@@ -519,13 +574,40 @@ def get_spec(name, list_of_parameters,
     if evaluator_requirements is None:
         evaluator_requirements = list()
 
+    if (policy_spec_from_type is None or policy_spec_from_type == "none"):
+        class _MySpec(_Spec):
+            """A spec, or list of requirements to fill an input parameter set."""
+            spec = {p.name:p for p in _flatten(list_of_parameters)}
+            spec_others = {p.name:p for p in list_of_parameters if type(p) not in [OneOfList, Conditional]}
+            spec_oneofs = [p for p in list_of_parameters if type(p) is OneOfList]
+            spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
+            spec_oneof_inds = [None for i in range(len(spec_oneofs))]
+            _policy_not_in_spec = policy_not_in_spec
+            valid_types = valid_types_by_name
+            eval_reqs = evaluator_requirements
+            __name__ = name
+
+    else:
+        class _MySpec(_TypedSpec):
+            """A spec, or list of requirements to fill an input parameter set."""
+            spec = {p.name:p for p in _flatten(list_of_parameters)}
+            spec_others = {p.name:p for p in list_of_parameters if type(p) not in [OneOfList, Conditional]}
+            spec_oneofs = [p for p in list_of_parameters if type(p) is OneOfList]
+            spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
+            spec_oneof_inds = [None for i in range(len(spec_oneofs))]
+            _policy_not_in_spec = policy_not_in_spec
+            _policy_spec_from_type = policy_spec_from_type
+            valid_types = valid_types_by_name
+            eval_reqs = evaluator_requirements
+            __name__ = name
+        
+    _MySpec.__name__ = name
+    return _MySpec
+
+        
     class _MySpec(_Spec):
         """A spec, or list of requirements to fill an input parameter set."""
-        spec = {p.name:p for p in _flatten(list_of_parameters)}
-        spec_others = {p.name:p for p in list_of_parameters if type(p) not in [OneOfList, Conditional]}
-        spec_oneofs = [p for p in list_of_parameters if type(p) is OneOfList]
-        spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
-        spec_oneof_inds = [None for i in range(len(spec_oneofs))]
+
         _policy_not_in_spec = policy_not_in_spec
         _policy_spec_from_type = policy_spec_from_type
         valid_types = valid_types_by_name
@@ -551,5 +633,25 @@ def copy_spec(MySpec):
     _MySpec.__name__ = MySpec.__name__
     return _MySpec
 
+
+def copy_spec(spec):
+    """Some specs modify themselves in-place, meaning that we need a fresh one of them to avoid breaking all others.
+>>>>>>> 7a293fc537f745bf4548192ddf79a9a73b992b1b
+
+    This literally copies the class, creating a new class with the same class variables.
+    """
+    name = spec.__name__
+    list_of_parameters = list(spec.spec.values())
+    valid_types_by_name = spec.valid_types.copy()
+    evaluator_requirements = spec.eval_reqs.copy()
+
+    try:
+        policy_spec_from_type = spec._policy_spec_from_type
+    except AttributeError:
+        policy_spec_from_type = None
+        
+    return get_spec(spec.__name__, list_of_parameters, spec._policy_not_in_spec, policy_spec_from_type,
+                    valid_types_by_name, evaluator_requirements)
+    
 
 

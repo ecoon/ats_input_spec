@@ -45,7 +45,10 @@ def valid_int_from_string(value):
     try:
         retval = int(value)
     except ValueError:
-        raise ValueError("Parameter of type int with invalid value \"%s\""%str(value))
+        try:
+            return int(float(value))
+        except ValueError:
+            raise RuntimeError("Parameter of type int with invalid value \"%s\""%str(value))
     return retval
 
 

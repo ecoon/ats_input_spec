@@ -1,8 +1,11 @@
+import ats_input_spec
 import ats_input_spec.known_specs
 import ats_input_spec.printing
 import ats_input_spec.public
 
-ats_input_spec.known_specs.load()
+ats_input_spec.setup_logging(1)
+ats_input_spec.load_known_specs()
+
 main = ats_input_spec.public.get_main()
 
 # add a mesh
@@ -19,7 +22,7 @@ main["cycle driver"]["required times"]["times start period stop"] = ats_input_sp
 main["checkpoint"]["times start period stop"] = ats_input_spec.public.time_in_seconds([0,1,-1], 'yr')
 
 # vis daily
-ats_input_spec.public.add_to_all_visualization(main, "times start period stop", ats_input_spec.public.time_in_seconds([0,1,-1], 'd'))
+ats_input_spec.public.add_to_all_visualization(main, "times start period stop", [0,1,-1], 'd')
 
 # add atmospheric pressure and gravity
 ats_input_spec.public.set_typical_constants(main)
@@ -28,12 +31,16 @@ ats_input_spec.public.set_typical_constants(main)
 obs_pars = {"variable":"water_content", "observation output filename":"total_water_content.txt",
             "region":"domain", "location name":"cell", "functional":"observation data: extensive integral"}
 ats_input_spec.public.add_observation(main, "total_water_content", obs_pars)
-ats_input_spec.public.add_to_all_observations(main, "times start period stop", ats_input_spec.public.time_in_seconds([0,0.1,-1], 'd'))
+ats_input_spec.public.add_to_all_observations(main, "times start period stop", [0, 0.1, -1], 'd')
 
 # print the result
 ats_input_spec.printing.help('main', main, False)
 
 # add a PK
+print()
+print("THIS IS WHERE IT STOPS WORKING -- ERRORS AFTER THIS POINT ARE EXPECTED")
+print()
+
 leaf = ats_input_spec.public.add_leaf_pk(main, "subsurface flow", main["cycle driver"]["PK tree"], "richards")
 leaf['primary variable key'] = 'pressure'
 leaf['domain name'] = ""

@@ -29,11 +29,11 @@ def to_string(name, obj):
         if obj.is_filled():
             if len(obj) > 0:
                 filledstr = ats_input_spec.colors.FILLED + "Filled" + ats_input_spec.colors.RESET
-            elif obj.cls.__name__.endswith("-list"):
+            elif type(obj).__name__.endswith("-list"):
                 filledstr = ats_input_spec.colors.UNFILLED + "Empty List" + ats_input_spec.colors.RESET
             else:
                 filledstr = ats_input_spec.colors.DEFAULT + "Defaults but Empty" + ats_input_spec.colors.RESET
-        elif type(obj).__name__.endswith("-list") and len(obj) is 0:
+        elif type(obj).__name__.endswith("-list") and len(obj) == 0:
             filledstr = ats_input_spec.colors.UNFILLED + "Empty List" + ats_input_spec.colors.RESET
         else:
             filledstr = ats_input_spec.colors.UNFILLED + "Not Filled" + ats_input_spec.colors.RESET
@@ -47,7 +47,7 @@ def _help(name, obj, include_optionals=True):
         isoptional = False
 
     try:
-        print(name, type(obj))
+        #print(name, type(obj))
         isfilled = obj.is_filled()
     except AttributeError:
         isfilled = False

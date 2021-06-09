@@ -11,6 +11,7 @@ the input spec in that file.
 """
 
 import os
+import logging
 import ats_input_spec.xml.primitives
 import ats_input_spec.specs
 import logging
@@ -18,15 +19,15 @@ import logging
 _begin = "/*!"
 _end = "*/"
 
+
+_spec_starters = ["``[", ".. _"]
 _magic_words = ["OR",
                 "ONE OF",
                 "END",
                 "IF",
                 "THEN",
                 "ELSE",
-                "``[",
-                ".. admonition:",
-                "EVALUATORS"]
+                "EVALUATORS"] + _spec_starters
 
 def find_all_comments(stream):
     """Grabs all text contained within _begin, _end pairs."""
@@ -146,7 +147,7 @@ def parameter_from_lines(lines):
         default = ats_input_spec.xml.primitives.valid_primitive_from_string(ptype, default)
 
     if is_primitive:
-        print("Creating a primitive: %s, %r"%(name, default))
+        logging.debug("Creating a primitive: %s, %r"%(name, default))
         return ats_input_spec.specs.PrimitiveParameter(name, ptype, default, optional)
     else:
         return ats_input_spec.specs.DerivedParameter(name, ptype, optional)
@@ -298,6 +299,11 @@ def read_this_scope(i, comments):
             specname = line[len(".. admonition:: "):].strip().strip(':')
             logging.debug(f"found specname: {specname}")
             i = advance(i+1,comments)
+        elif line.startswith(".. _") and line.endswith("-spec:"):
+            specname = line[4:-1]
+            i = advance(i+2, comments)
+        elif line.startswith(".. _"):
+            i = advance(i+1, comments)
 
     while i < len(comments):
         line = comments[i].strip()
@@ -343,6 +349,5 @@ def read_lines(name, comments):
         i, specname, objects, reqs = read_this_scope(i,comments)
         if specname is None:
             specname = to_specname(name)
-        if len(objects) > 0:
-            specs.append((specname, objects, reqs))
+        specs.append((specname, objects, reqs))
     return specs

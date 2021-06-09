@@ -499,57 +499,5 @@ def test_multiple():
 
 
 
-def test_typed_list():
-    my_leaf = []
-    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("mesh type", str))
-
-    my_meshfile = []
-    my_meshfile.append(ats_input_spec.specs.PrimitiveParameter("file name", str))
-    my_meshfile_class = ats_input_spec.specs.get_spec("mesh-type-file-spec",my_meshfile)
-
-    my_meshgen = []
-    my_meshgen.append(ats_input_spec.specs.PrimitiveParameter("nx", int))
-    my_meshgen_class = ats_input_spec.specs.get_spec("mesh-type-gen-spec",my_meshgen)
-
-    my_typed_class = ats_input_spec.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="sublist",
-                                            valid_types_by_name={my_meshgen_class.__name__:my_meshgen_class,
-                                                         my_meshfile_class.__name__:my_meshfile_class})
-    
-    my_typed_obj = my_typed_class()
-    ats_input_spec.printing.help("my mesh", my_typed_obj)
-    print("---")
-    my_typed_obj["mesh type"] = "file"
-    ats_input_spec.printing.help("my mesh", my_typed_obj)
-    print("---")
-    my_typed_obj["file parameters"]["file name"] = "mesh.exo"
-    ats_input_spec.printing.help("my mesh", my_typed_obj)
-    assert(my_typed_obj.is_filled())
-
-    
-def test_typed_list2():
-    my_leaf = []
-    my_leaf.append(ats_input_spec.specs.PrimitiveParameter("mesh type", str))
-
-    my_meshfile = []
-    my_meshfile.append(ats_input_spec.specs.PrimitiveParameter("file name", str))
-    my_meshfile_class = ats_input_spec.specs.get_spec("mesh-type-file-spec",my_meshfile)
-
-    my_meshgen = []
-    my_meshgen.append(ats_input_spec.specs.PrimitiveParameter("nx", int))
-    my_meshgen_class = ats_input_spec.specs.get_spec("mesh-type-gen-spec",my_meshgen)
-
-    my_typed_class = ats_input_spec.specs.get_spec("mesh-spec", my_leaf, policy_spec_from_type="flat list",
-                                            valid_types_by_name={my_meshgen_class.__name__:my_meshgen_class,
-                                                         my_meshfile_class.__name__:my_meshfile_class})
-    
-    my_typed_obj = my_typed_class()
-    ats_input_spec.printing.help("my mesh", my_typed_obj)
-    print("---")
-    my_typed_obj["mesh type"] = "file"
-    ats_input_spec.printing.help("my mesh", my_typed_obj)
-    print("---")
-    my_typed_obj["file name"] = "mesh.exo"
-    ats_input_spec.printing.help("my mesh", my_typed_obj)
-    assert(my_typed_obj.is_filled())
 
     
