@@ -604,39 +604,9 @@ def get_spec(name, list_of_parameters,
     _MySpec.__name__ = name
     return _MySpec
 
-        
-    class _MySpec(_Spec):
-        """A spec, or list of requirements to fill an input parameter set."""
-
-        _policy_not_in_spec = policy_not_in_spec
-        _policy_spec_from_type = policy_spec_from_type
-        valid_types = valid_types_by_name
-        eval_reqs = evaluator_requirements
-        __name__ = name
-    _MySpec.__name__ = name
-    return _MySpec
-
-def copy_spec(MySpec):
-    """Copies a MySpec object to create a unique spec that can be extended for typed objects."""
-    class _MySpec(_Spec):
-        """A spec, or list of requirements to fill an input parameter set."""
-        spec = copy.copy(MySpec.spec)
-        spec_others = copy.copy(MySpec.spec_others)
-        spec_oneofs = copy.copy(MySpec.spec_oneofs)
-        spec_conditionals = copy.copy(MySpec.spec_conditionals)
-        spec_oneof_inds = copy.copy(MySpec.spec_oneof_inds)
-        _policy_not_in_spec = copy.copy(MySpec._policy_not_in_spec)
-        _policy_spec_from_type = copy.copy(MySpec._policy_spec_from_type)
-        valid_types = copy.copy(MySpec.valid_types)
-        eval_reqs = copy.copy(MySpec.eval_reqs)
-        __name__ = MySpec.__name__
-    _MySpec.__name__ = MySpec.__name__
-    return _MySpec
-
 
 def copy_spec(spec):
     """Some specs modify themselves in-place, meaning that we need a fresh one of them to avoid breaking all others.
->>>>>>> 7a293fc537f745bf4548192ddf79a9a73b992b1b
 
     This literally copies the class, creating a new class with the same class variables.
     """

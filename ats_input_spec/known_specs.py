@@ -208,11 +208,9 @@ def load_selected(files, on_empty=None, on_error=None):
 def clear():
     global known_specs
     known_specs = ConstValuedDict()
-
     
 def get_known_spec(name, typename):
     return ats_input_spec.specs.DerivedParameter(name, known_specs[typename])
-
 
 # global singleton dictionary of known specs, either pre-loaded or loaded on demand
 known_specs = ConstValuedDict()
