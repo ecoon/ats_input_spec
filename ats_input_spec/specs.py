@@ -9,109 +9,681 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Definitions of types that are collections of other parameters.
 
 """
+
 import collections.abc
 import ats_input_spec.primitives
 import ats_input_spec.colors
 import ats_input_spec.printing
 import copy
 import warnings
+import itertools
 
-class PrimitiveParameter(object):
-    """A parameter whose type is a primitive."""
-    def __init__(self, name, ptype, default=None, optional=False):
+
+class Parameter(object):
+    """An entry, consisting of a name, type, metadata, and value."""
+    def __init__(self, name, ptype=None, default=None, optional=False, value=None):
         self.name = name
-        self.ptype = ptype
+
+        # set the paramter type
+        if ptype in ats_input_spec.primitives.valid_types:
+            # this is a primitive type
+            self._primitive = True
+            self.ptype_string = ats_input_spec.primitives.print_primitive_type(ptype)
+            self.ptype = ptype
+        elif type(ptype) is str:
+            # this is a derived type, and the class spec is not yet assigned
+            self._primitive = False
+            self.ptype_string = ptype
+            self.ptype = ptype
+        elif ptype is None:
+            # derived type, and the class spec is being assigned here as value
+            assert(value is not None)
+            self._primitive = False
+            self.ptype_string = str(self._primitive)
+            self.ptype = None
+        else:
+            # derived type with unknown typename
+            self._primitive = False
+            self.ptype_string = 'unknown derived parameter'
+            self.ptype = ptype
+
+        # validate and assign default
+        if default is not None:
+            assert(self._primitive)
+            default = ats_input_spec.primitives.valid_from_type(self.ptype, default)
         self.default = default
 
+        # set _optional flag
         if self.default is not None or optional:
             self._optional = True
         else:
             self._optional = False
-
-    def __str__(self):
-        """name [type] = default (optional)
-
-          OR
-
-        name [type] (optional)
-        """
-        namestring = ats_input_spec.colors.NAME + self.name + ats_input_spec.colors.RESET
-        typestring = ats_input_spec.primitives.print_primitive_type(self.ptype)
-
-        if self.default is not None:
-            defaultstring = "= %r"%self.default
-        elif self.is_optional():
-            defaultstring = "= None"
-        else:
-            defaultstring = "= " + ats_input_spec.colors.UNFILLED + "None" + ats_input_spec.colors.RESET
-
-        # optionalstring = ""
-        # if self.is_optional():
-        #     optionalstring = ats_input_spec.colors.DEFAULT + "(optional)" + ats_input_spec.colors.RESET
-        # return "%s [%s] %s %s"%(namestring,typestring,defaultstring,optionalstring)
-        return "%s [%s] %s"%(namestring,typestring,defaultstring)
         
-    def is_optional(self):
-        return self._optional
+        # validate and assign value
+        if value is not None:
+            if self._primitive:
+                value = ats_input_spec.primitives.valid_from_type(self.ptype, value)
+        self.value = value
 
-    def set_ptype(self, known_types):
-        assert(type(self.ptype) is type)
+    def _name_string(self):
+        return ats_input_spec.colors.NAME + self.name + ats_input_spec.colors.RESET
 
+    def _value_string(self):
+        if self.is_primitive():
+            val = self.get()
+            if val is not None:
+                return str(val)
+            elif self.is_optional():
+                return "[optional]"
+            else:
+                return ats_input_spec.colors.UNFILLED + "None" + ats_input_spec.colors.RESET
+        else:
+            if self.value is None or not self.value.is_complete():
+                return ats_input_spec.colors.UNFILLED + "[incomplete]" + ats_input_spec.colors.RESET
+            else:
+                if self.value.is_optional() and not self.value.has_value():
+                    return "[optional]"
+                else:
+                    return ats_input_spec.colors.FILLED + "[complete]" + ats_input_spec.colors.RESET
+
+    def __repr__(self):
+        return "Parameter(%r, ptype=%s, default=%r, optional=%r, value=%r)"%(self.name, self.ptype, self.default, self._optional, self.value)
     
-class DerivedParameter(object):
-    """A parameter whose type is a derived object."""
-    def __init__(self, name, ptype, optional=False):
-        self.name = name
-        self.ptype = ptype
-        self._optional = optional
-
     def __str__(self):
-        """name [type] = default (optional)
+        header = "%s [%s] : %s"%(self._name_string(), self.ptype_string, self._value_string())
+        if not self.is_primitive() and self.get() is not None:
+            header = header + '\n' + ats_input_spec.colors.indent(str(self.get()))
+        return header
 
-          OR
+    def __getitem__(self, k):
+        """Passthrough to the value"""
+        assert(not self.is_primitive())
+        assert(self.value is not None)
+        return self.value[k]
 
-        name [type] (optional)
-        """
-        namestring = ats_input_spec.colors.NAME + self.name + ats_input_spec.colors.RESET
-
-        if type(self.ptype) is str:
-            typestring = self.ptype
+    def __setitem__(self, k, v):
+        """Passthrough to the value"""
+        assert(not self.is_primitive())
+        assert(self.value is not None)
+        self.value[k] = v
+    
+    
+    def set(self, value):
+        """Sets value with type checking."""
+        if self.is_primitive():
+            self.value = ats_input_spec.primitives.valid_from_type(self.ptype, value)
         else:
-            typestring = "%s"%self.ptype.__name__
-        # optionalstring = ""
-        # if self.is_optional():
-        #     optionalstring = ats_input_spec.colors.DEFAULT + "(optional)" + ats_input_spec.colors.RESET
-        # return "%s [%s] %s %s"%(namestring,typestring,defaultstring,optionalstring)
-        return "%s [%s]"%(namestring,typestring)
+            # no type checking to be done
+            self.value = value
+
+    def get(self):
+        """Gets a value, substituting the default."""
+        if self.value is not None:
+            return self.value
+        elif self.default is not None:
+            return self.default
+        else:
+            return None
+
+    def is_primitive(self):
+        """Is this a plain-old-data type?"""
+        return self._primitive
 
     def is_optional(self):
+        """Must this be provided in a complete spec?"""
         return self._optional
 
-    def set_ptype(self, known_types):
-        if type(self.ptype) is str:
-            self.ptype = known_types[self.ptype]
-    
-
-def _flatten(container):
-    """simple flatten"""
-    for i in container:
-        if isinstance(i, (list,tuple)):
-            for j in _flatten(i):
-                yield j
+    def has_value(self):
+        """Has a value been set (and therefore this needs to be written)?"""
+        if self.is_primitive():
+            return self.value is not None
         else:
-            yield i
-    
+            return self.value is not None and self.value.has_value()
 
-class GenericList(collections.abc.MutableMapping):
-    __name__ = "list"
-    """Base class for specs."""
-    def __init__(self):
-        self._store = dict()
+    def is_complete(self):
+        """Can this be written now and result in a valid run?"""
+        if self.is_primitive():
+            return self.is_optional() or self.has_value()
+        else:
+            return self.is_optional() or \
+                (self.value is not None and self.value.is_complete())
+
+    def copy(self):
+        """A deep copy of self"""
+        if self.is_primitive():
+            return Parameter(self.name, self.ptype, self.default,
+                             self._optional, self.value)
+        else:
+            if self.value is not None:
+                new_val = self.value.copy()
+            else:
+                new_val = None
+            return Parameter(self.name, self.ptype, self.default,
+                             self._optional, new_val)
+
+
+
+class ParameterCollection(collections.abc.MutableMapping):
+    """A collection of parameters, this class acts like a dictionary from name : value.
+
+    But it is actually a dictionary from name : Parameter instances!
+    """
+    def __init__(self, pars=None, policy_not_in_spec='error', policy_empty_is_complete=False):
+        if type(pars) in [list,tuple]:
+            pars = dict((p.name, p) for p in pars)
+        elif pars is None:
+            pars = dict()
+        assert(type(pars) is dict)
+        self._pars = pars # a dictionary from name : Parameter object.
+        self._policy_not_in_spec = policy_not_in_spec
+        self._policy_empty_is_complete = policy_empty_is_complete
 
     # things to shut up ABC 
-    def __getitem__(self, key):
-        return self._store[key]
+    def __getitem__(self, k):
+        return self._pars[k].get()
     
+    def __iter__(self):
+        return iter(self._pars)
+
+    def __len__(self):
+        return len(self._pars)
+
+    def __delitem__(self, k):
+        del self._pars[k]    
+                    
+    def __setitem__(self, k, v):
+        if k not in self._pars:
+            if self._policy_not_in_spec == 'warn' :
+                warnings.warn(f'Adding parameter {k} of type {type(v)} to the spec.')
+            elif self._policy_not_in_spec == 'error':
+                raise KeyError(f'Parameter "{k}" is not in the Collection.')
+            self._pars[k] = Parameter(k, type(v), value=v)
+        else:
+            self._pars[k].set(v)
+
+    def __contains__(self, k):
+        return k in self._pars
+
+    def __str__(self):
+        return '\n'.join(['%s'%p for p in self._pars.values()])
+    
+    def parameters(self):
+        """Generator for all parameter objects."""
+        return self._pars.values()
+                
+    def get_parameter(self, k):
+        """Accessor for a parameter object."""
+        return self._pars[k]
+
+    def is_complete(self):
+        """Does this collection consist of all complete objects?"""
+        if len(self) == 0:
+            return self._policy_empty_is_complete
+        return all(p.is_complete() for p in self._pars.values())
+
+    def complete(self):
+        """Generator for all entries that are complete."""
+        for p in self._pars.values():
+            if p.is_complete():
+                yield p
+
+    def has_value(self):
+        return any(p.has_value() for p in self._pars.values())
+
+    def valued(self):
+        """Generator for all entries that has_value()"""
+        for p in self._pars.values():
+            if p.has_value():
+                yield p
+
+    def is_optional(self):
+        return all(p.is_optional() for p in self._pars.values())
+                
+    def copy(self):
+        pardict = dict((k,v.copy()) for (k,v) in self._pars.items())
+        return ParameterCollection(pardict, self._policy_not_in_spec)
+
+
+class Spec(collections.abc.MutableSequence):
+    """A collection of Collections, this defines a spec."""
+    def __init__(self, iterable=None, policy_empty_is_complete=False, **kwargs):
+        if iterable is None:
+            iterable = list()
+
+        self.collections = list(iterable)
+        self._policy_empty_is_complete = policy_empty_is_complete
+
+        if 'DEPENDENCIES' in kwargs:
+            self.dependencies = kwargs['DEPENDENCIES']
+        else:
+            self.dependencies = list()
+        if 'KEYS' in kwargs:
+            self.keys = kwargs['KEYS']
+        else:
+            self.keys = list()
+        if 'EVALUATORS' in kwargs:
+            self.evaluators = kwargs['EVALUATORS']
+        else:
+            self.evaluators = list()
+        if 'INCLUDES' in kwargs:
+            self.includes = kwargs['INCLUDES']
+        else:
+            self.includes = list()
+
+    def __getitem__(self, i):
+        if type(i) is int:
+            return self.collections[i]
+        else:
+            try:
+                return next(c[i] for c in self.collections if i in c)
+            except StopIteration:
+                raise KeyError(f'Specs does not have parameter entry {i}')
+
+    def _find_key(self, k):
+        """A private implementation that returns the index of the branch."""
+        # search for the containing branch and set the value
+        try:
+            index = next(j for (j,coll) in enumerate(self.collections) if k in coll)
+        except StopIteration:
+            raise KeyError(f'Parameter "{k}" is not in the {__name__}')
+        else:
+            return index
+            
+    def __setitem__(self, i, value):
+        if type(i) is int:
+            assert(iter(value) is not None)
+            self.collections[i] = value
+        else:
+            index = self._find_key(i)
+            self.collections[index][i] = value
+
+    def __delitem__(self, i):
+        self.collections.__delitem__(i)
+
+    def __len__(self):
+        return len(self.collections)
+
+    def insert(self, i, value):
+        self.collections.insert(i, value)
+        
+    def __contains__(self, k):
+        return any((k in coll) for coll in self.collections)
+
+    def __str__(self):
+        return '\n'.join(['%s'%coll for coll in self.collections])
+    
+    def parameters(self):
+        for collection in self.collections:
+            for p in collection.parameters():
+                yield p
+
+    def is_complete(self):
+        if len(self) == 0:
+            return self._policy_empty_is_complete
+        return all(coll.is_complete() for coll in self.collections)
+
+    def complete(self):
+        """Generator for complete parameters."""
+        for coll in self.collections:
+            for p in coll.complete():
+                yield p
+
+    def has_value(self):
+        return any(coll.has_value() for coll in self.collections)
+
+    def valued(self):
+        """Generator for parameters that has_value()"""
+        for coll in self.collections:
+            for p in coll.valued():
+                yield p
+
+    def is_optional(self):
+        return all(coll.is_optional() for coll in self.collections)
+
+    def _update_from_spec(self, other):
+        """Updates this spec by adding other items to it."""
+        for coll in other.collections:
+            self.append(coll)
+
+        self.includes = list(set(self.includes+other.includes))
+        self.dependencies = list(set(self.dependencies+other.dependencies))
+        self.keys = list(set(self.keys+other.keys))
+        self.evaluators = list(set(self.evaluators+other.evaluators))
+
+    def _update_from_dict(self, other):
+        """Updates parameters one at a time."""
+        for k, v in other.items():
+            self[k] = v
+    
+    def update(self, other):
+        if type(other) is Spec:
+            self._update_from_spec(other)
+        else:
+            self._update_from_dict(other)
+                
+    def copy(self):
+        return Spec([coll.copy() for coll in self.collections])
+
+                
+    
+class OneOf(Spec):
+    """A collection of ParameterCollections, enabling branch selection.
+
+    Enables ONE OF ... OR ... OR ... END constructs.
+    """
+    def __init__(self, *args):
+        """Accepts a list of collections, each one a branch of the ONE OF logic."""
+        self.branch_index = None
+        super(OneOf, self).__init__(*args)
+
+    def __setitem__(self, k, v):
+        if type(k) is str:
+            index = self._find_key(k)
+            if self.branch_index is None:
+                self.branch_index = index
+            elif self.branch_index != index:
+                raise RuntimeError(f'Attempting to set parameter "{k}" value in previously pruned branch.')
+            self.collections[self.branch_index][k] = v
+                
+        else:
+            super(OneOf, self).__setitem__(k,v)
+
+    def __str__(self):
+        if self.branch_index is None:
+            return 'ONE OF:\n' + \
+                '\nOR:\n'.join([ats_input_spec.colors.indent(str(coll)) for coll in self.collections])
+        else:
+            return str(self.collections[self.branch_index])
+            
+    def is_complete(self):
+        # two ways to be complete -- either the collection index is
+        # provided and that collection is complete, or the collection index
+        # isn't provided but one of the collections is complete --
+        # because all pars in that collection are optional!
+        if self.branch_index is not None:
+            return self.collections[self.branch_index].is_complete()
+        else:
+            return any(b.is_complete() for b in self.collections)
+
+    def complete(self):
+        """Generator for complete parameters."""
+        if self.branch_index is not None:
+            for p in self.collections[self.branch_index].complete():
+                yield p
+        
+    def has_value(self):
+        return self.branch_index is not None and \
+            self.collections[self.branch_index].has_value()
+
+    def valued(self):
+        """Generator for parameters that has_value()"""
+        if self.branch_index is not None:
+            for p in self.collections[self.branch_index].valued():
+                yield p
+
+    def copy(self):
+        return OneOf([coll.copy() for coll in self.collections])
+                
+            
+
+class CaseSwitch:
+    """A single parameter, whose value sets a series of other inclusions.
+
+    Enables CASE ... SWITCH(a) ... SWITCH(b) ... SWITCH() ... END
+    Enables IF ... THEN ... ELSE ... END
+    """
+    def __init__(self, case, switch_dict):
+        assert(type(case) is Parameter)
+        assert(case.is_primitive())
+        self.case = case
+
+        for k,v in switch_dict.items():
+            assert(type(k) is case.ptype)
+            assert(type(v) is ParameterCollection)
+        self.branches = switch_dict
+
+    def __getitem__(self, k):
+        if k == self.case.name:
+            return self.case.get()
+        elif self.case.is_complete():
+            return self.branches[self.case.get()][k]
+        else:
+            raise KeyError(f'Cannot access CaseSwitch branch until case "{self.case.name}" is set.')
+        
+    def __setitem__(self, k, v):
+        if k == self.case.name:
+            self.case.set(v)
+        else:
+            try:
+                switch, branch = next((s,b) for (s, b) in self.branches.items() if k in b)
+            except StopIteration:
+                raise KeyError(f'Parameter "{k}" is not in the CaseSwitch.')
+            else:
+                if self.case.get() == switch:
+                    branch[k] = v
+                else:
+                    raise KeyError(f'In a CaseSwitch, set the case "{self.case.name}" value prior to setting parameters in the branch.')
+        
+    def __contains__(self, k):
+        return (k == self.case.name) or any(k in branch for branch in self.branches.values())
+
+    def __str__(self):
+        if self.case.is_complete():
+            return self._str_branch_selected()
+        elif self.case.ptype is bool:
+            return self._str_ifthen()
+        else:
+            return self._str_caseswitch()
+
+    def _str_branch_selected(self):
+        return '%s\n%s'%(self.case,self.branches[self.case.get()])
+        
+    def _str_ifthen(self):
+        lines = ['IF:',
+                 ats_input_spec.colors.indent(str(self.case)),
+                 'THEN:',
+                 ats_input_spec.colors.indent(str(self.branches[True])),
+                 'ELSE:',
+                 ats_input_spec.colors.indent(str(self.branches[False])),
+                 'END']
+        return '\n'.join(lines)
+
+    def _str_caseswitch(self):
+        lines = ['CASE:',
+                 ats_input_spec.colors.indent(str(self.case))]
+        for key, switch in self.branches.items():
+            lines.extend([ f'SWITCH({key}):',
+                           ats_input_spec.colors.indent(str(switch)), ]),
+        lines.append('END')
+        return '\n'.join(lines)
+    
+    def is_complete(self):
+        if not self.case.is_complete():
+            return False
+        return self.branches[self.case.get()].is_complete()
+
+    def complete(self):
+        """Generator for complete parameters."""
+        if self.case.is_complete():
+            yield self.case
+            
+            for p in self.branches[self.case.get()].complete():
+                yield p
+    
+    def has_value(self):
+        if self.case.has_value():
+            return True
+        elif self.case.is_complete():
+            return self.branches[self.case.get()].has_value()
+        else:
+            return False
+
+    def valued(self):
+        """Generator for parameters that has_value()"""
+        if self.case.has_value():
+            yield self.case
+        if self.case.is_complete():
+            for p in self.branches[self.case.get()].valued():
+                yield p
+
+    def parameters(self):
+        yield self.case
+        for branch in self.branches.values():
+            for p in branch.parameters():
+                yield p
+
+    def copy(self):
+        case_copy = self.case.copy()
+        switch_copy = dict([(k, v.copy()) for (k,v) in self.branches.items()])
+        return CaseSwitch(case_copy, switch_copy)
+
+                
+                
+class TypedCollection(ParameterCollection):
+    """A ParameterCollection that stores things of a single type."""
+    def __init__(self, contained_ptype):
+        if type(contained_ptype) is str:
+            self.contained_ptype_string = contained_ptype
+            self.contained_ptype = None
+        else:
+            self.contained_ptype_string = str(contained_ptype)
+            self.contained_ptype = contained_ptype
+
+        self._primitive = self.contained_ptype in ats_input_spec.primitives.valid_types
+        super(TypedCollection, self).__init__(list(),
+                                              policy_not_in_spec='none',
+                                              policy_empty_is_complete=False)
+    def append_empty(self, k):
+        """Add an empty Parameter of type contained_ptype and key k"""
+        if k in self:
+            raise ValueError(f'Key "{k}" already exists, cannot append_empty() of this name.')
+        if self.contained_ptype is None:
+            raise RuntimeError('Cannot append_empty() on TypedCollection whose type has not yet been set.')
+        elif self._primitive:
+            self._pars[k] = Parameter(k, self.contained_ptype)
+            return self._pars[k]
+        else:
+            self._pars[k] = Parameter(k, self.contained_ptype_string, value=self.contained_ptype.copy())
+            return self._pars[k].get()
+
+    def __setitem__(self, k, v):
+        if self.contained_ptype is None:
+            raise RuntimeError('Cannot __setitem__() on TypedCollection whose type has not yet been set.')
+        elif self._primitive:
+            v = ats_input_spec.primitives.valid_from_type(self.contained_ptype, v)
+            super(TypedCollection, self).__setitem__(k, v)
+        else:
+            raise NotImplementedError('It is unclear whether this should be implemented...')
+            # append empty and copy in seems to be the best way to
+            # ensure the same type structure?  will this work?  Will
+            # this branch even ever be used?  How would v be
+            # constructed in the first place?
+            v1 = self.append_empty(k)
+            for p1, p2 in zip(v1.parameters(), v2.parameters()):
+                p1 = p2
+
+    def copy(self):
+        return TypedCollection(self.contained_ptype.copy())
+
+
+class TypedSpec(Spec):
+    def __init__(self, my_type, policy='standard', **kwargs):
+        self.type = my_type
+        self.policy = policy
+        if policy not in ['standard', 'inline', 'sublist']:
+            raise ValueError(f'Invalid policy "{self.policy}"')
+
+        if self.policy == 'standard' or self.policy == 'inline':
+            type_par = Parameter(self.type+' type', ptype=str, **kwargs)
+            # note the policy=none here allows this collection to be
+            # extended when the type is set.
+            par_coll = ParameterCollection([type_par,], policy_not_in_spec='none')
+            super(TypedSpec, self).__init__([par_coll,])
+        else:
+            # create an empty list
+            super(TypedSpec, self).__init__()
+
+    def set_type(self, typename, typed_spec):
+        if self.policy == 'standard' or self.policy == 'inline':
+            # set the type parameter, call the super one in case we decide to
+            # implement __setitem__ here to call set_type()
+            super(TypedSpec, self).__setitem__(self.type+' type', typename)
+            
+        if self.policy == 'standard':
+            # the typed spec goes under "typename parameters" sublist
+            plist_name = typename+' parameters'
+            self[0][plist_name] = typed_spec
+        elif self.policy == 'inline':
+            # the typed spec goes in this list
+            self.append(typed_spec)
+        elif self.policy == 'sublist':
+            sublist_name = self.type+": "+typename
+            # the typed spec goes under a new list whose name is typename
+            typed_sublist = Parameter(sublist_name, value=typed_spec)
+            par_coll = ParameterCollection([typed_sublist,])
+            self.append(par_coll)
+        else:
+            raise ValueError(f'Invalid policy "{self.policy}"')
+        return self.get_sublist()
+
+    def get_sublist(self):
+        """Returns the parameters list associated with the type."""
+        if self.policy == 'standard':
+            typename = self[self.type+' type']
+            plist_name = typename+' parameters'
+            return self[plist_name]
+        elif self.policy == 'inline':
+            return self
+        elif self.policy == 'sublist':
+            return next(self.parameters()).get()
+
+    def has_value(self):
+        if self.policy == 'sublist' and len(self) > 0:
+            return True
+        else:
+            return super(TypedSpec, self).has_value()
+
+    def copy(self):
+        return TypedSpec(self.type, self.policy)
+                
+
+class SpecDict(collections.abc.MutableMapping):
+    """A dictionary that returns by copy and fills sublists."""
+    def __init__(self, *args, **kwargs):
+        self._store = dict(*args, **kwargs)
+        self['list'] = ats_input_spec.specs.ParameterCollection(policy_not_in_spec='none')
+
+    def __getitem__(self, key):
+        print(f'Accessing known spec: {key}')
+        # includes specs we can construct on the fly
+        if key.endswith('-list'):
+            contained = self[key[:-len('-list')]]
+            tc = ats_input_spec.specs.TypedCollection(contained)
+            #result = ats_input_spec.specs.Spec([tc,])
+            return tc
+        elif key.endswith('-typed-spec'):
+            contained_name = key[:-len('-typed-spec')]
+            result = ats_input_spec.specs.TypedSpec(contained_name, policy='standard')
+        elif key.endswith('-typedinline-spec'):
+            contained_name = key[:-len('-typedinline-spec')]
+            result = ats_input_spec.specs.TypedSpec(contained_name, policy='inline')
+        elif key.endswith('-typedsublist-spec'):
+            contained_name = key[:-len('-typedsublist-spec')]
+            result = ats_input_spec.specs.TypedSpec(contained_name, policy='sublist')
+        else:
+            result = self._store[key].copy()
+
+        # add in includes, recursively
+        if hasattr(result, 'includes'):
+            while len(result.includes) > 0:
+                for included_spec in copy.copy(result.includes):
+                    result.update(self[included_spec])
+                    result.includes.pop(included_spec)
+
+        # now fill the result
+        ats_input_spec.specs.populate_specs(result, self)
+        return result
+            
     def __iter__(self):
         return iter(self._store)
 
@@ -124,540 +696,25 @@ class GenericList(collections.abc.MutableMapping):
     def __setitem__(self, key, value):
         self._store[key] = value
 
-    def is_filled(self):
-        """Is this list potentially complete?"""
-        for k,v in self.items():
-            if v is None:
-                return False
-            elif not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
-                return False
-        return True
-
-    def filled(self):
-        """Returns a generator to (name,value) pairs of filled objects in the spec."""
-        # parameters that are set and filled
-        for k,v in self._store.items():
-            if v is not None:
-                if ats_input_spec.primitives.is_primitive(type(v)):
-                    yield k,v
-                elif v.is_filled():
-                    yield k,v
-
-    def unfilled(self):
-        """Returns a generator to (name, value) or (name,ptype) or (oneof_#, oneof_#) 
-        pairs of unfilled objects or unselected oneof branches in the
-        spec."""
-        # parameters that are set but not filled
-        for k,v in self.items():
-            if v is None:
-                yield k,v
-            else:
-                if not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
-                    yield k,v
-
-    @classmethod
-    def set_ptype(cls, known_types):
-        pass
-
-#
-# Class and contructors for a list with a type
-class _TypedList(GenericList):
-    def append_empty(self, name):
-        """Append an empty object of type given by my type to the list.
-
-        Typed objects change their own spec.  To do this without
-        affecting all others, we have to create a new class for each one.
-        """
-        assert(name not in self.keys())
-        if self._primitive:
-            self.__setitem__(name, None)
-            return None
-        else:
-            self.__setitem__(name,copy_spec(self.ContainedPType)())
-            return self[name]
-
-    def __setitem__(self, key, value):
-        if self._primitive:
-            value = ats_input_spec.primitives.valid_from_type(self.ContainedPType, value)
-        super(_TypedList,self).__setitem__(key, value)
-
-    def is_filled(self):
-        """Is this list potentially complete?"""
-        if len(self) == 0:
-            return self._empty_policy
-        else:
-            return super(_TypedList,self).is_filled()
-        
-    def unfilled(self):
-        """Returns a generator to (name, value) or (name,ptype) or (oneof_#, oneof_#) 
-        pairs of unfilled objects or unselected oneof branches in the
-        spec."""
-        # if the list is empty, need at least one item
-        for k,v in super(_TypedList,self).unfilled():
-            yield k,v
-
-    @classmethod
-    def set_ptype(cls, known_types):
-        if type(cls.ContainedPType) is str:
-            cls.ContainedPType = known_types[cls.ContainedPType]
-
-            
-def get_typed_list(name, ptype, empty_policy=False):
-    """Generates a spec for a Typed List.
-
-    Argument:
-      ptype             | A single type for which this list contains.
-      empty_policy      | Can the list be empty?
-
-    Returns:
-      A class for a list of that type.
-    """
-    class _MyTypedList(_TypedList):
-        """A list whose entries must be of a given type."""
-        ContainedPType = ptype
-        _primitive = ats_input_spec.primitives.is_primitive(ptype)
-        _empty_policy = empty_policy
-        __name__ = name
-
-    _MyTypedList.__name__ = name
-            
-    return _MyTypedList
+    def update(self, other):
+        assert(type(other) is SpecDict)
+        self._store.update(other._store)
 
 
 #
-# Class and contructors for a specced set of paramters.
-class _Spec(GenericList):
-    def __init__(self):
-        super(_Spec,self).__init__()
-        for k,p in self.spec_others.items():
-            if not p.is_optional() and not ats_input_spec.primitives.is_primitive(p.ptype):
-#            if not p.is_optional():
-                self.fill_default(k)
-    
-    def is_filled(self):
-        """Is this spec potentially complete?"""
-        for k,v in self.items():
-            if v is None:
-                return False
-            elif not ats_input_spec.primitives.is_primitive(type(v)) and not v.is_filled():
-                return False
-        for k,p in self.spec_others.items():
-            if not (k in self.keys() or p.is_optional()):
-                return False
-        for i,oneof in enumerate(self.spec_oneofs):
-            if self.spec_oneof_inds[i] is None:
-                return False
-            else:
-                any_full = False
-                for j in self.spec_oneof_inds[i]:
-                    if all((opt.is_optional() or opt.name in self.keys()) for opt in self.spec_oneofs[i][j]):
-                        any_full = True
-                        break
-                if not any_full:
-                    return False
+# A couple of default wrappers and helper functions
+#
+def populate_specs(container, known_specs):
+    """Given a container of parameters, fill it with types."""
+    for v in container.parameters():
+        if not v.is_primitive() and v.get() is None:
+            v.set(known_specs[v.ptype].copy())
+            populate_specs(v.get(), known_specs)
 
-        # nothing special to do for conditionals        
-        return True
-
-    def fill_default(self, name):
-        """Create an empty container for the contained spec given by name."""
-        p = self.spec[name]
-        if ats_input_spec.primitives.is_primitive(p.ptype):
-            if p.default is not None:
-                self[name] = p.default
-            else:
-                self[name] = None
-        else:
-            self[name] = p.ptype()
-        return self[name]
-
-    def __getitem__(self, key):
-        return super(_Spec,self).__getitem__(key)
-
-    def _setitem(self, name, ptype, value):
-        """Set the item without asking questions.  Used internally only!"""
-        if ats_input_spec.primitives.is_primitive(ptype):
-            value = ats_input_spec.primitives.valid_from_type(ptype, value)
-        super(_Spec,self).__setitem__(name, value)
-        
-    def __setitem__(self, name, value):
-        try:
-            pp = self.spec[name]
-        except KeyError:
-            # not in the spec
-            if self._policy_not_in_spec == "error":
-                print('Parameter "%s" is not in the spec.'%(name))
-                ats_input_spec.printing.help("", self)
-                raise KeyError('Parameter "%s" is not in the spec.'%(name))
-            elif self._policy_not_in_spec == "warn":
-                warnings.warn("Adding parameter %s of type %r even though it is not in the spec."%(name, type(value)))
-                super(_Spec,self).__setitem__(name, value)
-            else:
-                super(_Spec,self).__setitem__(name, value)
-                
-        else:
-            if name not in self.spec_others.keys():
-                # requested a parameter that is not in the other list
-                # check if it is in a THEN or ELSE block and error about setting the conditional
-                for j, conditional in enumerate(self.spec_conditionals):
-                    cond = conditional[0]
-                    if name == cond.name:
-                        assert(type(value) is bool)
-                    
-                    for i, opt in enumerate(conditional[1]):
-                        if name in (p.name for p in opt):
-                            if cond.value == True:
-                                pass
-                            elif cond.value == False:
-                                raise RuntimeError('Attempting to set a parameter in a THEN '
-                                                   'block but the conditional was set to FALSE: "{cond.name}"')
-                            else:
-                                raise RuntimeError('Attempting to set a parameter in a THEN '
-                                                   'block without first setting the IF block '
-                                                   'conditional value to TRUE: "{cond.name}"')
-                            
-                    for i, opt in enumerate(conditional[2]):
-                        if name in (p.name for p in opt):
-                            if cond.value == False:
-                                pass
-                            elif cond.value == True:
-                                raise RuntimeError('Attempting to set a parameter in an ELSE '
-                                                   'block but the conditional was set to TRUE: "{cond.name}"')
-                            else:
-                                raise RuntimeError('Attempting to set a parameter in an ELSE '
-                                                   'block without first setting the IF block '
-                                                   'conditional value to FALSE: "{cond.name}"')
-            
-                # check if in a oneof
-                for j,oneof in enumerate(self.spec_oneofs):
-                    matches = []
-                    for i,opt in enumerate(oneof):
-                        if name in (p.name for p in opt):
-                            matches.append(i)
-
-                    if len(matches) == 0:
-                        pass
-                    elif len(matches) == 1:
-                        if self.spec_oneof_inds[j] is not None and matches[0] not in self.spec_oneof_inds[j]:
-                            raise RuntimeError('Spec with oneof including "%s" requested entries of a different branch.')
-                        self.spec_oneof_inds[j] = matches
-                    elif len(matches) > 1:
-                        if self.spec_oneof_inds[j] is not None:
-                            self.spec_oneof_inds[j] = list(set(self.spec_oneof_inds[j]).intersection(set(matches)))
-                            if len(self.spec_oneof_inds[j]) == 0:
-                                raise RuntimeError('Spec with oneof including "%s" requested entries of a different branch.')
-                        else:
-                            self.spec_oneof_inds[j] = matches
-
-            # check if a type
-            if self._policy_spec_from_type is not None and name.endswith(" type"):
-                assert(type(value) is str)
-                typename = name[0:-len(" type")]
-
-                # add subspec info
-                subspec_name = value+" parameters"
-                subspec_specname = (typename+" "+value).replace(" ","-")+"-spec"
-                try:
-                    subspec_ptype = self.valid_types[subspec_specname]
-                except KeyError:
-                    raise KeyError('Typed spec "%s" with value "%s" does not have a valid spec for "%s"'%(name,value,subspec_specname))
-                else:
-                    if self._policy_spec_from_type == "sublist":
-                        self.spec_others[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
-                        self.spec[subspec_name] = self.spec_others[subspec_name]
-                        self.fill_default(subspec_name)
-                    elif self._policy_spec_from_type == "flat list":
-                        for k,v in subspec_ptype.spec_others.items():
-                            self.spec_others[k] = v
-                        for k,v in subspec_ptype.spec.items():
-                            self.spec[k] = v
-                        self.spec_oneofs.extend(subspec_ptype.spec_oneofs)
-                        self.spec_oneof_inds.extend(subspec_ptype.spec_oneof_inds)
-                            
-            # insert it already                
-            self._setitem(name, pp.ptype, value)
-
-
-    def unfilled(self):
-        """Returns a generator to (name, value) or (name,ptype) or (oneof_#, oneof_#) 
-        pairs of unfilled objects or unselected oneof branches in the
-        spec."""
-        for k,v in super(_Spec,self).unfilled():
-            yield k,v
-        # non-optional parameters not yet set/filled
-        for k,v in self.spec_others.items():
-            if k not in self.keys() and not v.is_optional():
-                yield k,v
-        # non-optional parameters in selected oneof branches
-        for i,oneofs in enumerate(self.spec_oneofs):
-            if self.spec_oneof_inds[i] is None or len(self.spec_oneof_inds[i]) > 1:
-                yield "one_of %r"%i, "one_of %r"%i
-            else:
-                for opt in oneofs[self.spec_oneof_inds[i][0]]:
-                    if opt.name not in self.keys() and not opt.is_optional():
-                        yield opt.name, opt
-        # conditionals
-        for i,cond in enumerate(self.spec_conditionals):
-            if cond[0][0].name not in self.keys() and not cond[0][0].is_optional():
-                yield "if conditional %r"%i, "if conditional %r"%i
-            else:
-                k = cond[0][0].name
-                if k in self.keys():
-                    v = self[k].value
-                else:
-                    v = cond[0][0].default
-                if v == True:
-                    for opt in cond[1]:
-                        if opt.name not in self.keys() and not opt.is_optional():
-                            yield opt.name, opt
-                elif v == False:
-                    for opt in cond[2]:
-                        if opt.name not in self.keys() and not opt.is_optional():
-                            yield opt.name, opt
-
-                        
-    def optional(self):
-        """Returns a generator to (name, ptype) optional (but not filled) parameters."""
-        # optional parameters not yet set/filled
-        for k,v in self.spec_others.items():
-            if k not in self.keys() and v.is_optional():
-                yield k,v
-
-        # optional parameters in selected oneof branches
-        for i,oneofs in enumerate(self.spec_oneofs):
-            if self.spec_oneof_inds[i] is not None and len(self.spec_oneof_inds[i]) == 1:
-                for p in oneofs[self.spec_oneof_inds[i][0]]:
-                    if p.name not in self.keys() and p.is_optional():
-                        yield p.name, p
-
-        # conditionals
-        for i,cond in enumerate(self.spec_conditionals):
-            if cond[0][0].name not in self.keys() and cond[0][0].is_optional():
-                yield cond[0][0].name, cond[0][0]
-            elif cond[0][0].name in self.keys():
-                v = self[k].value
-                if v == True:
-                    for opt in cond[1]:
-                        if opt.name not in self.keys() and opt.is_optional():
-                            yield opt.name, opt
-                elif v == False:
-                    for opt in cond[2]:
-                        if opt.name not in self.keys() and opt.is_optional():
-                            yield opt.name, opt
-                        
-                
-    def oneofs(self):
-        """List of undetermined oneofs, each of which is a list of untrimmed branches of that oneof.
-
-        Note, unlike the others, this is not a generator!
-        """
-        ret = list()
-        for i,oneofs in enumerate(self.spec_oneofs):
-            if self.spec_oneof_inds[i] is None:
-                available = range(len(oneofs))
-            elif len(self.spec_oneof_inds[i]) > 1:
-                available = self.spec_oneof_inds[i]
-            else:
-                available = None
-
-            if available is not None:
-                oneof = list()
-                for a in available:
-                    opt = list()
-                    for p in oneofs[a]:
-                        if p.name not in self.keys():
-                            opt.append(p)
-                    oneof.append(opt)
-                ret.append(oneof)
-        return ret
-
-    @classmethod
-    def set_ptype(cls, known_types):
-        to_remove = []
-        for include in cls.includes:
-            # an include
-            include_ptype = include[0]
-            to_add = known_types[include_ptype]
-            for newk,v in to_add.spec_others.items():
-                cls.spec_others[newk] = v
-            for newk,v in to_add.spec.items():
-                cls.spec[newk] = v
-            cls.spec_oneofs.extend(to_add.spec_oneofs)
-            cls.spec_oneof_inds.extend(to_add.spec_oneof_inds)
-            cls.option_keys.extend(to_add.option_keys)
-            cls.eval_reqs.extend(to_add.eval_reqs)
-
-            # Modifying this list while looping over it is dangerous,
-            # but may be ok?  We don't really want to make a copy, but
-            # want to recursively include our included spec's
-            # includes.
-            cls.includes.extend(to_add.includes)
-                
-        for k,v in cls.spec.items():
-            v.set_ptype(known_types)
-
-
-class Conditional(list):
-    """Dummy class for naming conditionals"""
-    pass
-
-class OneOfList(list):
-    """Dummy class for naming OneOf parameters"""
-    pass
-    
-class _TypedSpec(_Spec):
-    def __init__(self):
-        super(_Spec,self).__init__()
-
-    def __setitem__(self, name, value):
-        if name.endswith(" type"):
-            self.set_type(name[:-len(" type")], value)
-        else:
-            super(_TypedSpec, self).__setitem__(name, value)
-
-    def set_type(self, name, value):
-        subspec_specname = "{}-{}-spec".format(name,value).replace(" ","-").replace("_","-")
-        try:
-            subspec_ptype = self.valid_types[subspec_specname]
-        except KeyError:
-            raise KeyError('Typed spec "%s" with value "%s" does not have a valid spec for "%s"'%(name,value,subspec_specname))
-
-        # add subspec info
-        if self._policy_spec_from_type == "standard":
-            subspec_name = "{} parameters".format(value)
-            self.spec_others[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
-            self.spec[subspec_name] = self.spec_others[subspec_name]
-            self.fill_default(subspec_name)
-            super(_TypedSpec, self).__setitem__(name+" type", value)
-
-        elif self._policy_spec_from_type == "flat list":
-            for k,v in subspec_ptype.spec_others.items():
-                self.spec_others[k] = v
-            for k,v in subspec_ptype.spec.items():
-                self.spec[k] = v
-            self.spec_oneofs.extend(subspec_ptype.spec_oneofs)
-            self.spec_oneof_inds.extend(subspec_ptype.spec_oneof_inds)
-            super(_TypedSpec, self).__setitem__(name+" type", value)
-
-        elif self._policy_spec_from_type == "sublist":
-            subspec_name = "{}: {}".format(name, value)
-            self.spec_others[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False)
-            self.spec[subspec_name] = DerivedParameter(subspec_name, subspec_ptype, False) 
-            self.fill_default(subspec_name)
-
-        else:
-            raise ValueError("Unknown typed policy type: {}".format(self._policy_spec_from_type))
-
-    def get_sublist(self, name):
-        if self._policy_spec_from_type == "standard":
-            value = self[name+" type"]
-            return self[value+" parameters"]
-        elif self._policy_spec_from_type == "flat list":
-            return self
-        elif self._policy_spec_from_type == "sublist":
-            assert(len(self) == 1)
-            return list(self.values())[0]
-
-        else:
-            raise ValueError("Unknown typed policy type: {}".format(self._policy_spec_from_type))
-
-
-def get_spec(name, list_of_parameters, others=None,
-             policy_not_in_spec="error", policy_spec_from_type=None,
-             valid_types_by_name=None):
-    """Generates a spec for a list of parameters, including optional and 
-    defaulted parameters, which may be primitive or derived types.
-
-    Arguments
-    ---------
-    name : str
-      Name of the spec.
-    list_of_parameters : list
-      List of PrimitiveParameter or DerivedParameter objects.
-    others : tuple
-      require_evaluators, keys, includes.  Each are lists.
-    policy_not_in_spec : str, optional (None)
-      If a value is requested that is not in the spec, respond by
-      'error', 'warn', or 'none'
-    policy_spec_from_type : str, optional (None)
-      Where to specify the "type" of a typed object.  Either
-      "standard", "flat list", or "sublist" (or "none"/None).
-    valid_types_by_name : list, optional (None)
-      Not used currently, will be used to specify the valid types.
-
-    Returns:
-      A class for a spec including these parameters.
-
-    """
-    if others is None:
-        evaluators_required = []
-        opt_keys = []
-        include_others = []
-    else:
-        assert(type(others) in [list,tuple])
-        assert(len(others) == 3)
-        (evaluators_required, opt_keys, include_others) = others
-
-    if valid_types_by_name is None:
-        valid_types_by_name = dict()
-
-    if (policy_spec_from_type is None or policy_spec_from_type == "none"):
-        class _MySpec(_Spec):
-            """A spec, or list of requirements to fill an input parameter set."""
-            spec = {p.name:p for p in _flatten(list_of_parameters)}
-            spec_others = {p.name:p for p in list_of_parameters if type(p) not in [OneOfList, Conditional]}
-            spec_oneofs = [p for p in list_of_parameters if type(p) is OneOfList]
-            spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
-            spec_oneof_inds = [None for i in range(len(spec_oneofs))]
-            _policy_not_in_spec = policy_not_in_spec
-            _policy_spec_from_type = None
-            valid_types = valid_types_by_name
-            eval_reqs = evaluators_required
-            option_keys = opt_keys
-            includes = include_others
-            __name__ = name
-
-    else:
-        class _MySpec(_TypedSpec):
-            """A spec, or list of requirements to fill an input parameter set."""
-            spec = {p.name:p for p in _flatten(list_of_parameters)}
-            spec_others = {p.name:p for p in list_of_parameters if type(p) not in [OneOfList, Conditional]}
-            spec_oneofs = [p for p in list_of_parameters if type(p) is OneOfList]
-            spec_conditionals = [p for p in list_of_parameters if type(p) is Conditional]
-            spec_oneof_inds = [None for i in range(len(spec_oneofs))]
-            _policy_not_in_spec = policy_not_in_spec
-            _policy_spec_from_type = policy_spec_from_type
-            valid_types = valid_types_by_name
-            eval_reqs = evaluators_required
-            option_keys = opt_keys
-            includes = include_others
-            __name__ = name
-        
-    _MySpec.__name__ = name
-    return _MySpec
-
-
-def copy_spec(spec):
-    """Some specs modify themselves in-place, meaning that we need a fresh one of them to avoid breaking all others.
-
-    This literally copies the class, creating a new class with the same class variables.
-    """
-    name = spec.__name__
-    list_of_parameters = list(spec.spec.values())
-    valid_types_by_name = copy.copy(spec.valid_types)
-    evaluator_requirements = copy.copy(spec.eval_reqs)
-    opt_keys = copy.copy(spec.option_keys)
-    include_others = copy.copy(spec.includes)
-    others = (evaluator_requirements, opt_keys, include_others)
-
-    try:
-        policy_spec_from_type = spec._policy_spec_from_type
-    except AttributeError:
-        policy_spec_from_type = None
-        
-    return get_spec(spec.__name__, list_of_parameters, others,
-                    spec._policy_not_in_spec, policy_spec_from_type,
-                    valid_types_by_name)
-    
+def get_spec(name, iterable):
+    """Mostly for testing, this just takes a bunch of pars and makes a spec."""
+    parlist = ParameterCollection(iterable)
+    # make a copy on return to not effect the inputs
+    return Spec([parlist,]).copy()
 
 

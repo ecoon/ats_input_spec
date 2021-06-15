@@ -19,9 +19,7 @@ import ats_input_spec.printing
 
 @pytest.fixture
 def main():
-    ats_input_spec.known_specs.load(on_error='warn')
     yield ats_input_spec.public.get_main()
-    ats_input_spec.known_specs.clear()
 
 def test_get_main(main):
     pass
@@ -34,7 +32,6 @@ def test_add_domain(main):
     # end after one year, require daily syncronization
     main["cycle driver"]["end time"] = 1.0
     main["cycle driver"]["end time units"] = "yr"
-    main["cycle driver"].fill_default("required times")
     main["cycle driver"]["required times"]["times start period stop"] = ats_input_spec.public.time_in_seconds([0, 1, -1], 'd')
 
     # checkpoint yearly

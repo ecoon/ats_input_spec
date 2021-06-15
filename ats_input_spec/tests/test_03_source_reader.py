@@ -88,7 +88,7 @@ def test_read_multiple():
     assert(len(spec_text) == 5)
     print("My length in test:", len(spec_text))
     i, name, speclist, others = ats_input_spec.source_reader.read_this_scope(0,spec_text)
-    assert(len(speclist) == 3)
+    assert(len(list(speclist.parameters())) == 3)
 
 
 spec_text2 = """
@@ -125,15 +125,14 @@ spec_text3 = """
     * `"x0`" ``[Array(double)]`` x0 in f = y0 + g * (x - x0)
 """.split('\n')
 def test_new_style_specs():
-    specs = []
+    specs = list()
     i = 0
     while i < len(spec_text3):
         i, specname, objects, others = ats_input_spec.source_reader.read_this_scope(i,spec_text3)
         specs.append((specname, objects))
-
     assert(len(specs) == 1)
-    assert(specs[0][0] == "my-new-style-spec")
-    assert(len(specs[0][1]) == 3)
+    assert(len(objects) == 1)
+    assert(len(objects[0].parameters()) == 3)
 
 
 spec_text4 = """
@@ -152,7 +151,8 @@ def test_empty_spec():
 
     assert(len(specs) == 1)
     assert(specs[0][0] == "an-empty-spec")
-    assert(len(specs[0][1]) == 0)           
+    assert(len(objects) == 1)
+    assert(len(list(objects.parameters())) == 0)
     
     
 def test_to_specname():
@@ -167,5 +167,47 @@ def test_to_specname():
     assert(ats_input_spec.source_reader.to_specname("wrm_van_genuchten") == "wrm-van-genuchten-spec")
 
 
-    
-    
+spec_text_cv = """    
+list is indexed by Region, and the regions (logically) should partition the
+domain (or boundary of the domain in the case of BCs).
+
+Each entry in that list is a:
+
+``[composite-vector-function-spec]``
+
+ONE OF:
+* `"region`" ``[string]`` Region on which this function is evaluated.
+OR:
+* `"regions`" ``[Array(string)]`` List of regions on which this function is evaluated.
+END
+
+ONE OF:
+* `"component`" ``[string]`` Mesh component to evaluate this on.  This is one of "cell", "face", "node", "edge",
+  or "boundary_face". The last two may require additional conditions, such as a proper mesh initialization.
+  The mask "*" could be used in place of the component name.
+OR:
+* `"components`" ``[Array(string)]`` Mesh components to evaluate this on.  This is some collection of "cell", "face", 
+  "node", "edge", and/or "boundary_face". The last two may require additional conditions, such as a proper mesh 
+  initialization.  The array with the single entry "*" could be used to initialize all existing components.
+END
+
+* `"function`" ``[function-spec]`` The spec to provide the actual algebraic function.  
+
+""".split('\n')
+def test_oneof_in_cv():
+    specs = []
+    i = 0
+    while i < len(spec_text_cv):
+        i, specname, objects, others = ats_input_spec.source_reader.read_this_scope(i, spec_text_cv)
+        specs.append((specname, objects))
+
+    assert(len(specs) == 1)
+    assert(specs[0][0] == 'composite-vector-function-spec')
+    assert(len(specs[0][1]) == 3) # 2 oneofs and a plist
+
+    assert(len(objects[0].collections) == 2)
+    assert(next(objects[0].collections[0].parameters()).name == 'region')
+    assert(len(objects[1].collections) == 2)
+    assert(next(objects[1].collections[0].parameters()).name == 'component')
+    assert(len(objects[2]) == 1)
+

@@ -28,10 +28,10 @@ ats_input_spec.public.add_to_all_visualization(main, "times start period stop", 
 ats_input_spec.public.set_typical_constants(main)
 
 # add an observation
-obs_pars = {"variable":"water_content", "observation output filename":"total_water_content.txt",
-            "region":"domain", "location name":"cell", "functional":"observation data: extensive integral"}
-ats_input_spec.public.add_observation(main, "total_water_content", obs_pars)
-ats_input_spec.public.add_to_all_observations(main, "times start period stop", [0, 0.1, -1], 'd')
+#obs_pars = {"variable":"water_content", "observation output filename":"total_water_content.txt",
+#            "region":"domain", "location name":"cell", "functional":"observation data: extensive integral"}
+#ats_input_spec.public.add_observation(main, "total_water_content", obs_pars)
+#ats_input_spec.public.add_to_all_observations(main, "times start period stop", [0, 0.1, -1], 'd')
 
 # print the result
 ats_input_spec.printing.help('main', main, False)

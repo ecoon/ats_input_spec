@@ -21,3 +21,7 @@ DEFAULT = colorama.Fore.YELLOW
 UNFILLED = colorama.Fore.RED
 
 RESET = colorama.Fore.RESET
+
+
+def indent(string, ntabs=1, spaces_per=2):
+    return '\n'.join([' '*(spaces_per*ntabs)+line for line in string.split('\n')])

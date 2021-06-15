@@ -28,8 +28,33 @@ _magic_words = ["OR",
                 "THEN",
                 "ELSE",
                 "EVALUATORS",
-                "INCLUDES"
+                "INCLUDES",
+                "KEYS",
+                "DEPENDENCIES",
                 ] + _spec_starters
+
+def to_specname(inname):
+    name = inname.replace('_','-')
+    name = name.replace(' ','-')
+
+    chars = []
+    for i in range(len(name)):
+        if name[i].isupper():
+            if i != 0:
+                if i+1 < len(name) and name[i+1].islower():
+                    chars.append('-')
+                elif name[i-1].islower():
+                    chars.append('-')
+            elif i != 0 and i+1 == len(name):
+                chars.append('-')
+
+        chars.append(name[i].lower())
+    res =  ''.join(chars)
+    if not res.endswith('-spec'):
+        res = res+'-spec'
+    res = res.replace('--', '-')
+    return res
+
 
 def find_all_comments(stream):
     """Grabs all text contained within _begin, _end pairs."""
@@ -48,28 +73,8 @@ def find_all_comments(stream):
             comment_lines.append(line)
     return comment_lines
                 
-def to_specname(inname):
-    chars = []
-    name = inname.replace("_","-")
-    
-    for i in range(len(name)):
-        if name[i].isupper():
-            if i != 0:
-                if i+1 < len(name) and name[i+1].islower():
-                    chars.append("-")
-                elif name[i-1].islower():
-                    chars.append("-")
-            elif i != 0 and i+1 == len(name):
-                chars.append("-")
-                
-        chars.append(name[i].lower())
-    res =  "".join(chars)+"-spec"
-    res = res.replace("--", "-")
-    return res
-
 def advance(i,comments):
     """Advances the pointer to the next magic word or parameter"""
-    logging.info(f"advancing!")
     while i < len(comments):
         line = comments[i].strip()
         logging.debug(f"advancing line: {line}")
@@ -164,9 +169,9 @@ def parameter_from_lines(lines):
     # return the spec object
     if is_primitive:
         logging.debug("Creating a primitive: %s, %r"%(name, default))
-        return ats_input_spec.specs.PrimitiveParameter(name, ptype, default, optional)
+        return ats_input_spec.specs.Parameter(name, ptype, default, optional)
     else:
-        return ats_input_spec.specs.DerivedParameter(name, ptype, optional)
+        return ats_input_spec.specs.Parameter(name, ptype, optional=optional)
 
 def getnext_param(i_in, comments):
     """Reads a Parameter"""
@@ -293,7 +298,7 @@ def getnext_oneof(i_in, comments):
     """Reads a ONE OF ... OR ... OR ... block"""
     logging.debug(f"  reading ONE OF")
     assert(comments[i_in].strip().startswith("ONE OF"))
-    options = ats_input_spec.specs.OneOfList()
+    branches = list()
 
     i = i_in + 1
     while i < len(comments):
@@ -301,7 +306,9 @@ def getnext_oneof(i_in, comments):
         assert(i_new >= i)
         i = i_new
         assert(junk is None)
-        options.append(objs)
+        if len(list(objs.parameters())) == 0:
+            raise RuntimeError('In reading a ONE OF, one of the branches is empty.')
+        branches.append(objs)
 
         line = comments[i].strip()
         logging.debug(f'in ONE OF, delimiter line = {line}')
@@ -315,70 +322,59 @@ def getnext_oneof(i_in, comments):
             raise RuntimeError("getnext_oneof broke")
 
     # quality control
-    if len(options) < 2:
+    if len(branches) < 2:
         raise RuntimeError("ONE OF: ... OR .. END block not properly formed")
-    for opts in options:
+    for opts in branches:
         if len(opts) == 0:
             raise RuntimeError("ONE OF: ... OR .. END block not properly formed")
-    return i, options
+    return i, ats_input_spec.specs.OneOf(branches)
+
+
+def getnext_itemlist(i_in, comments, listname):
+    """Reads a continuous list of things called listname."""
+    logging.debug(f"  reading {listname}")
+    assert(comments[i_in].strip().startswith(listname))
+    items = []
+    i = advance(i_in+1, comments)
+    while i < len(comments):
+        line = comments[i].strip()
+        if line.startswith('-'):
+            i, item = getnext_item(i, comments)
+            items.append(item)
+        else:
+            break
+    return i, items
 
 
 def getnext_evaluators(i_in, comments):
     """Reads a continuous list of required evaluators."""
-    logging.debug(f"  reading EVALUATORS")
-    assert(comments[i_in].strip().startswith("EVALUATORS"))
-    reqs = []
-    i = advance(i_in+1, comments)
-    while i < len(comments):
-        line = comments[i].strip()
-        if line.startswith('-'):
-            i, item = getnext_item(i, comments)
-            reqs.append(item)
-        i += 1
-    return i, reqs
-
+    return getnext_itemlist(i_in, comments, "EVALUATORS")
+    
 def getnext_keys(i_in, comments):
     """Reads a list of key names."""
-    logging.debug(f"  reading KEYS")
-    assert(comments[i_in].strip().startswith("KEYS"))
-    keys = []
-    i = advance(i_in+1, comments)
-    while i < len(comments):
-        line = comments[i].strip()
-        if line.startswith('-'):
-            i, item = getnext_item(i, comments)
-            keys.append(item)
-        else:
-            break
-    return i, keys
+    return getnext_itemlist(i_in, comments, "KEYS")
+
+def getnext_dependencies(i_in, comments):
+    """Reads a list of key names."""
+    return getnext_itemlist(i_in, comments, "DEPENDENCIES")
 
 def getnext_includes(i_in, comments):
-    """Reads a list of included names."""
-    logging.debug(f"  reading INCLUDES")
-    assert(comments[i_in].strip().startswith("INCLUDES"))
-    includes = []
-    i = advance(i_in+1, comments)
-    while i < len(comments):
-        line = comments[i].strip()
-        if line.startswith('-'):
-            i, item = getnext_item(i, comments)
-            includes.append(item)
-        else:
-            break
-    return i, includes
+    """Reads a list of key names."""
+    return getnext_itemlist(i_in, comments, "INCLUDES")
 
 def getnext_if(i_in, comments):
     """Reads an IF ... THEN ... ELSE ... ENDIF block"""
     logging.debug(f"  reading IF")
     assert(comments[i_in].strip().startswith("IF"))
-    cond_true_false = ats_input_spec.specs.Conditional()
 
     # read the conditional, always present
     i, junk, objs, junk2 = read_this_scope(i_in+1, comments)
     assert(junk is None)
-    if len(objs) != 1:
+    case_pars = list(objs.parameters())
+    if len(case_pars) != 1:
         raise RuntimeError('Conditional IF may only have one boolean parameter.')
-    cond_true_false.append(objs)
+    case = case_pars[0]
+    branches = dict()
 
     line = comments[i].strip()
     logging.debug(f'in IF, delimiter line = {line}')
@@ -387,29 +383,31 @@ def getnext_if(i_in, comments):
     if line.startswith("THEN"):
         i, junk, objs, junk2 = read_this_scope(i+1, comments)
         assert(junk is None)
-        cond_true_false.append(objs)
+        assert(len(objs) is 1)
+        branches[True] = objs[0]
 
         line = comments[i].strip()
         logging.debug(f'after THEN, delimiter line = {line}')
     else:
         # no THEN block
-        cond_true_false.append(list())
+        branches[True] = ats_input_spec.specs.ParameterCollection(list(), policy_empty_is_complete=True)
 
     # check for ELSE block
     if line.startswith("ELSE"):
         i, junk, objs, junk2 = read_this_scope(i+1, comments)
         assert(junk is None)
-        cond_true_false.append(objs)
+        assert(len(objs) is 1)
+        branches[False] = objs[0]
 
         line = comments[i].strip()
         logging.debug(f'after ELSE, delimiter line = {line}')
     else:
         # no ELSE block
-        cond_true_false.append(list())
+        branches[False] = ats_input_spec.specs.ParameterCollection(list(), policy_empty_is_complete=True)
 
     if not line.startswith("END"):
         raise RuntimeError("Unclosed IF..THEN...ELSE...END block")
-    return i+1, cond_true_false
+    return i+1, ats_input_spec.specs.CaseSwitch(case, branches)
 
 
 def read_this_scope(i_in, comments):
@@ -417,10 +415,13 @@ def read_this_scope(i_in, comments):
     or other marker ending the scope.
     """
     logging.debug(f"reading scope starting at line: {i_in} = {comments[i_in]}")
-    required_evaluators = []
-    keys = []
-    includes = []
-    objects = []
+    parameters = []
+    objects =[]
+    others = dict(INCLUDES=list(),
+                  KEYS=list(),
+                  EVALUATORS=list(),
+                  DEPENDENCIES=list()
+                  )
     specname = None
 
     i = advance(i_in, comments)
@@ -448,33 +449,44 @@ def read_this_scope(i_in, comments):
                 # note in real code obj is a type, but in test code
                 # it can be a string.  So rather than do more mocking work,
                 # we'll just test it here.
-                objects.append(obj)
+                parameters.append(obj)
+
         elif line.startswith("ONE OF"):
             i_new, obj = getnext_oneof(i, comments)
             assert(i_new > i)
             i = i_new
             objects.append(obj)
+
         elif line.startswith("IF"):
             i_new, obj = getnext_if(i, comments)
             assert(i_new > i)
             i = i_new
             objects.append(obj)
 
-        elif line.startswith("EVALUATOR"):
+        elif line.startswith("EVALUATORS"):
             i_new, reqs = getnext_evaluators(i, comments)
             assert(i_new > i)
             i = i_new
-            required_evaluators.extend(reqs)
+            others['EVALUATORS'] = reqs
+            
         elif line.startswith("KEYS"):
             i_new, keys = getnext_keys(i, comments)
             assert(i_new > i)
             i = i_new
-            keys.extend(keys)
+            others['KEYS'] = keys
+
         elif line.startswith("INCLUDES"):
             i_new, incs = getnext_includes(i, comments)
             assert(i_new > i)
             i = i_new
-            includes.extend(incs)
+            others['INCLUDES'] = incs
+
+        elif line.startswith("DEPENDENCIES"):
+            i_new, deps = getnext_dependencies(i, comments)
+            assert(i_new > i)
+            i = i_new
+            others['DEPENDENCIES'] = deps
+            
         elif line.startswith("-"):
             # items are not processed in a scope, likely this is a RST
             # list in the documentation, not a true item.  Continue.
@@ -483,9 +495,10 @@ def read_this_scope(i_in, comments):
             # exit the scope
             break
         i = advance(i, comments)
-        
+
+    objects.append(ats_input_spec.specs.ParameterCollection(parameters))
     logging.debug(f"done reading scope ranging from {i_in} to {i}")
-    return i, specname, objects, (required_evaluators, keys, includes)
+    return i, specname, ats_input_spec.specs.Spec(objects), others
 
 def read(filename):
     with open(filename, 'r') as fid:
@@ -493,7 +506,7 @@ def read(filename):
     return read_lines(os.path.split(filename)[-1][:-3], comments)
 
 def read_lines(name, comments):
-    specs = []
+    specs = ats_input_spec.specs.SpecDict()
     i = 0
     while i < len(comments):
         i_new, specname, objects, reqs = read_this_scope(i,comments)
@@ -503,5 +516,78 @@ def read_lines(name, comments):
             i = i_new
         if specname is None:
             specname = to_specname(name)
-        specs.append((specname, objects, reqs))
+        specs[specname] = ats_input_spec.specs.Spec(objects, **reqs)
     return specs
+
+
+def load_specs_from_lines(name, lines, on_error='error'):
+    """Load specs from a collection of line-strings."""
+    if on_error == None:
+        try:
+            result = ats_input_spec.source_reader.read_lines(name, lines)
+        except Exception:
+            result = ats_input_spec.specs.SpecDict()
+    elif on_error == 'warn':
+        try:
+            result = ats_input_spec.source_reader.read_lines(name, lines)
+        except Exception as e:
+            warnings.warn(f'Failed loading from "{name}" with error:')
+            warnings.warn(f'{e}')
+            result = ats_input_spec.specs.SpecDict()
+    elif on_error == 'error':
+        result = ats_input_spec.source_reader.read_lines(name, lines)
+    else:
+        raise ValueError('Invalid value for on_error')
+    assert(result is not None)
+    return result
+    
+
+def load(path=None, on_empty=None, on_error=None):
+    """Loads all specs from a path."""
+    if path is None:
+        path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
+
+    result = ats_input_spec.specs.SpecDict()
+    for dirname, subdirs, files in os.walk(path):
+        for f in files:
+            if f.endswith(".hh") and not f.endswith("_reg.hh"):
+                logging.debug("Reading file: %s"%f)
+                with open(os.path.join(dirname,f), 'r') as fid:
+                    lines = ats_input_spec.source_reader.find_all_comments(fid)
+                l_result = load_specs_from_lines(f[:-3], lines, on_error)
+                if len(l_result) == 0:
+                    if on_empty == 'warn':
+                        warnings.warn(f'load of "{f[:-3]}" resulted in no specs')
+                    elif on_empty == 'error':
+                        raise RuntimeError(f'load of "{f[:-3]}" resulted in no specs')
+                else:
+                    result.update(l_result)    
+    return result
+
+def load_selected(selected, path, on_empty=None, on_error=None):
+    """Loads a selected set of specs from a path.
+
+    Returns a tuple of loaded, not_found_list
+    """
+    if path is None:
+        path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
+
+    result = ats_input_spec.specs.SpecDict()
+    l_selected = selected.copy()
+    for dirname, subdirs, files in os.walk(path):
+        for f in files:
+            if f.endswith(".hh") and os.path.split(f)[-1][:-3] in selected:
+                l_selected.remove(os.path.split(f)[-1][:-3])
+                print("Reading file: %s"%f)
+                with open(os.path.join(dirname,f), 'r') as fid:
+                    lines = ats_input_spec.source_reader.find_all_comments(fid)
+                l_result = load_specs_from_lines(f[:-3], lines, on_error=on_error)
+                if len(l_result) == 0:
+                    if on_empty == 'warn':
+                        warnings.warn(f'load of "{f[:-3]}" resulted in no specs')
+                    elif on_empty == 'error':
+                        raise RuntimeError(f'load of "{f[:-3]}" resulted in no specs')
+                else:
+                    result.update(l_result)    
+
+    return result, l_selected

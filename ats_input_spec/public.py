@@ -4,24 +4,27 @@ ATS is released under the three-clause BSD License.
 The terms of use and "as is" disclaimer for this license are 
 provided in the top-level COPYRIGHT file.
 
-Authors: Ethan Coon (ecoon@lanl.gov)
+Authors: Ethan Coon (coonet@ornl.gov)
 
 The public interface of the ats_input_spec package.
 
 """
 
 import ats_input_spec.specs
-import ats_input_spec.known_specs
+import ats_input_spec.source_reader
+
+known_specs = ats_input_spec.source_reader.load()
 
 def get_main():
     """Gets the top level spec and all non-optional sub-specs."""
-    return ats_input_spec.known_specs.known_specs["main-spec"]()
+    global known_specs
+    return known_specs["main-spec"]
 
-def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
+def add_domain(main, domain_name, dimension, mesh_type, mesh_args=None):
     """Adds objects associated with a domain.
 
     Arguments:
-      main              | main list to add domain to
+      mesh_list         | list to add domain to
       domain_name       | name this domain
       dimension         | 3 if a subsurface mesh, 
                         |  2 if a surface mesh
@@ -33,19 +36,18 @@ def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
       - placeholders for a mesh
       - placeholders for a visualization list
       - a region for the entirety of that domain.
+
     """
+    global known_specs
+
+    if mesh_args is None:
+        mesh_args = dict()
+
     # add the mesh
     new_mesh = main['mesh'].append_empty(domain_name)
-    new_mesh["mesh type"] = mesh_type
-
-    if mesh_type == "read mesh file" and "file" in mesh_args.keys() and "format" not in mesh_args.keys():
-        if mesh_args["file"].endswith(".exo") or mesh_args["file"].endswith(".par"):
-            mesh_args['format'] = "Exodus II"
-        elif mesh_args["file"].endswith(".mstk"):
-            mesh_args['format'] = "MSTK"
-        else:
-            raise RuntimeError('Unknown mesh format from name "%r", please manually set the format.'%mesh_args['file'])
-    new_mesh[mesh_type+" parameters"].update(mesh_args) 
+    mesh_type_spec = ats_input_spec.source_reader.to_specname('mesh '+mesh_type)
+    new_mesh.set_type(mesh_type, known_specs[mesh_type_spec])
+    new_mesh[mesh_type+' parameters'].update(mesh_args) 
 
     # add a dimension-sized region of large extent for "all"
     region_name = ''
@@ -53,25 +55,30 @@ def add_domain(main, domain_name, dimension, mesh_type, mesh_args):
         region_name = "computational domain"
     else:
         region_name = "%s domain"%domain_name
-
-    add_region(main, region_name, "all", dict())
+    add_region(main, region_name, 'all')
 
     # add a visualization sublist for this domain
     main['visualization'].append_empty(domain_name)
     return new_mesh
 
-def add_region(main, region_name, region_type, region_args):
+def add_region(main, region_name, region_type, region_args=None):
     """Adds objects associated with a region.
 
     Arguments:
-      main              | main list to add region
+      region_list       | list to add region
       region_name       | name this region
       region_spec       | spec of the region, of the form "region-box" or "region-planar"
       region_pars       | Dictionary of extra parameters needed by the spec.
     """
-    new_region = main['regions'].append_empty(region_name)
-    new_region.set_type('region', region_type)
-    new_region.get_sublist('region').update(region_args)
+    global known_specs
+
+    region_list = main['regions']
+    if region_args is None:
+        region_args = dict()
+    new_region = region_list.append_empty(region_name)
+    region_type_spec = ats_input_spec.source_reader.to_specname('region '+region_type)
+    new_region.set_type(region_type, known_specs[region_type_spec])
+    new_region.get_sublist().update(region_args)
     return new_region
 
 def add_to_all_visualization(main, io_parameter_name, io_value, io_units=None):
@@ -99,11 +106,12 @@ def time_in_seconds(value, units):
     
 def set_typical_constants(main):
     """Sets atmospheric pressure and gravity, which are basically in everything."""
-    atmos = ats_input_spec.known_specs.known_specs["constants-scalar-spec"]()
+    global known_specs
+    atmos = ats_known_specs["constants-scalar-spec"]
     atmos["value"] = 101325.0
     main["state"]["initial conditions"]["atmospheric pressure"] = atmos
 
-    grav = ats_input_spec.known_specs.known_specs["constants-vector-spec"]()
+    grav = known_specs["constants-vector-spec"]
     grav["value"] = [0.,0.,-9.80665]
     main["state"]["initial conditions"]["gravity"] = grav
 
@@ -131,13 +139,15 @@ def add_to_all_observations(main, io_parameter_name, io_value, io_units):
 
 def add_leaf_pk(main, name, parent_list, pk_type):
     """Adds a PK... time to break something!"""
+    global known_specs
+    
     # add the tree entry, and pop the sub PKs list which is not needed for leaf PKs
     pk_tree_entry = parent_list.append_empty(name)
-    pk_tree_entry["PK type"] = pk_type
+    pk_tree_entry.set_type(pk_type, known_specs[pk_type])
 
     # add the PKs entry
     pk_type_spec = pk_type.replace(" ","-")+"-spec"
-    pk_entry = ats_input_spec.known_specs.known_specs[pk_type_spec]()
+    pk_entry = known_specs[pk_type_spec]
     main["PKs"][name] = pk_entry
     return pk_entry
     
