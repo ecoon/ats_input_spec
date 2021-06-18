@@ -1,4 +1,4 @@
-"""tests a list of typed objects"""
+"""tests lists of typed objects"""
 
 import pytest
 import ats_input_spec.printing

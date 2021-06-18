@@ -9,21 +9,15 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Tests for the public interface, full capability.
 
 """
-
-
 import pytest
 import ats_input_spec.public
 import ats_input_spec.printing
-
+import ats_input_spec.io
 
 @pytest.fixture
 def main():
-    yield ats_input_spec.public.get_main()
+    main = ats_input_spec.public.get_main()
 
-def test_get_main(main):
-    pass
-
-def test_add_domain(main):
     # add a mesh
     mesh_args = {"file":"../mymesh.exo"}
     ats_input_spec.public.add_domain(main, "domain", 3, "read mesh file", mesh_args)
@@ -38,17 +32,17 @@ def test_add_domain(main):
 
     # vis daily
     ats_input_spec.public.add_to_all_visualization(main, "times start period stop", ats_input_spec.public.time_in_seconds([0,1,-1], 'd'))
+    return main
+    
+def test_writing(main):
+    ats_input_spec.io.write(main, 'ats_input_spec/tests/out.xml')
 
-    # # add atmospheric pressure and gravity
-    # ats_input_spec.public.set_typical_constants(main)
+    with open('ats_input_spec/tests/out_gold.xml', 'r') as fid:
+        lines_gold = fid.read()
 
-    # # add an observation
-    # obs_pars = {"variable":"water_content", "observation output filename":"total_water_content.txt",
-    #             "region":"domain", "location name":"cell", "functional":"observation data: extensive integral"}
-    # ats_input_spec.public.add_observation(main, "total_water_content", obs_pars)
-    # ats_input_spec.public.add_to_all_observations(main, "times start period stop", ats_input_spec.public.time_in_seconds([0,0.1,-1], 'd'))
+    with open('ats_input_spec/tests/out.xml', 'r') as fid:
+        lines = fid.read()
 
-    # # add a PK
-    # ats_input_spec.public.add_leaf_pk(main, "subsurface flow", main["cycle driver"]["PK tree"], "richards")
-    # ats_input_spec.printing.help('main', main)
-    print(main)
+    assert(lines_gold == lines)
+        
+    

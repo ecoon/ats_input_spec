@@ -525,9 +525,29 @@ def test_list_typed_spec():
     assert(len(list(tc.parameters())) == 2)
 
 
+def test_includes():
+    ks = specs.SpecDict()
 
+    # ab-spec includes xy
+    ab = {'a' : specs.Parameter('a', str),
+          'b' : specs.Parameter('b', int, optional=True)}
+    ab = specs.ParameterCollection(ab)
+    ab_spec = specs.Spec([ab,], includes=[('xy-spec',None,False,'mydoc'),])
+    ks['ab-spec'] = ab_spec
 
+    # xy spec
+    xy = {'x' : specs.Parameter('x', float),
+          'y' : specs.Parameter('y', float, optional=True)}
+    xy = specs.ParameterCollection(xy)
+    xy_spec = specs.Spec([xy,])
+    ks['xy-spec'] = xy_spec
 
+    # create an ab
+    my_ab = ks['ab-spec']
+    assert('x' in my_ab)
+    my_ab['x'] = 1.1
+    assert(my_ab['x'] == 1.1)
+    
     
     
     

@@ -78,6 +78,9 @@ def add_region(main, region_name, region_type, region_args=None):
     new_region = region_list.append_empty(region_name)
     region_type_spec = ats_input_spec.source_reader.to_specname('region '+region_type)
     new_region.set_type(region_type, known_specs[region_type_spec])
+    if region_type == 'all':
+        # ugly hack to keep this required but empty list from disappearing...
+        region_args['empty'] = True
     new_region.get_sublist().update(region_args)
     return new_region
 

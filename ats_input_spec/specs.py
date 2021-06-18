@@ -28,7 +28,7 @@ class Parameter(object):
         if ptype in ats_input_spec.primitives.valid_types:
             # this is a primitive type
             self._primitive = True
-            self.ptype_string = ats_input_spec.primitives.print_primitive_type(ptype)
+            self.ptype_string = ats_input_spec.primitives.primitives_to_text[ptype]
             self.ptype = ptype
         elif type(ptype) is str:
             # this is a derived type, and the class spec is not yet assigned
@@ -72,7 +72,7 @@ class Parameter(object):
         if self.is_primitive():
             val = self.get()
             if val is not None:
-                return str(val)
+                return ats_input_spec.primitives.string_from_primitive(val)
             elif self.is_optional():
                 return "[optional]"
             else:
@@ -209,7 +209,8 @@ class ParameterCollection(collections.abc.MutableMapping):
     
     def parameters(self):
         """Generator for all parameter objects."""
-        return self._pars.values()
+        for p in self._pars.values():
+            yield p
                 
     def get_parameter(self, k):
         """Accessor for a parameter object."""
@@ -253,20 +254,20 @@ class Spec(collections.abc.MutableSequence):
         self.collections = list(iterable)
         self._policy_empty_is_complete = policy_empty_is_complete
 
-        if 'DEPENDENCIES' in kwargs:
-            self.dependencies = kwargs['DEPENDENCIES']
+        if 'dependencies' in kwargs:
+            self.dependencies = kwargs['dependencies']
         else:
             self.dependencies = list()
-        if 'KEYS' in kwargs:
-            self.keys = kwargs['KEYS']
+        if 'keys' in kwargs:
+            self.keys = kwargs['keys']
         else:
             self.keys = list()
-        if 'EVALUATORS' in kwargs:
-            self.evaluators = kwargs['EVALUATORS']
+        if 'evaluators' in kwargs:
+            self.evaluators = kwargs['evaluators']
         else:
             self.evaluators = list()
-        if 'INCLUDES' in kwargs:
-            self.includes = kwargs['INCLUDES']
+        if 'includes' in kwargs:
+            self.includes = kwargs['includes']
         else:
             self.includes = list()
 
@@ -298,7 +299,10 @@ class Spec(collections.abc.MutableSequence):
             self.collections[index][i] = value
 
     def __delitem__(self, i):
-        self.collections.__delitem__(i)
+        if type(i) is int:
+            self.collections.__delitem__(i)
+        elif type(i) is str:
+            next(coll for coll in self.collections if i in coll).__delitem__(i)
 
     def __len__(self):
         return len(self.collections)
@@ -362,7 +366,12 @@ class Spec(collections.abc.MutableSequence):
             self._update_from_dict(other)
                 
     def copy(self):
-        return Spec([coll.copy() for coll in self.collections])
+        return Spec([coll.copy() for coll in self.collections],
+                    includes=copy.copy(self.includes),
+                    dependencies=copy.copy(self.dependencies),
+                    keys=copy.copy(self.keys),
+                    evaluators=copy.copy(self.evaluators)
+                    )
 
                 
     
@@ -546,7 +555,7 @@ class TypedCollection(ParameterCollection):
             self.contained_ptype_string = contained_ptype
             self.contained_ptype = None
         else:
-            self.contained_ptype_string = str(contained_ptype)
+            self.contained_ptype_string = 'TypedCollection'
             self.contained_ptype = contained_ptype
 
         self._primitive = self.contained_ptype in ats_input_spec.primitives.valid_types
@@ -587,21 +596,34 @@ class TypedCollection(ParameterCollection):
 
 
 class TypedSpec(Spec):
-    def __init__(self, my_type, policy='standard', **kwargs):
+    def __init__(self, my_type, policy='standard', others=None, **kwargs):
         self.type = my_type
         self.policy = policy
-        if policy not in ['standard', 'inline', 'sublist']:
+        if policy not in ['standard', 'inline', 'sublist', 'sublistdash']:
             raise ValueError(f'Invalid policy "{self.policy}"')
 
+        collections = []
+        if others is not None:
+            # check for the type par in others and remove it
+            if self.type+' type' in others:
+                others.pop(self.type+' type')
+            if len(list(others.parameters())) > 0:
+                collections.append(others)
+        self.others = others
+        
         if self.policy == 'standard' or self.policy == 'inline':
             type_par = Parameter(self.type+' type', ptype=str, **kwargs)
             # note the policy=none here allows this collection to be
             # extended when the type is set.
             par_coll = ParameterCollection([type_par,], policy_not_in_spec='none')
-            super(TypedSpec, self).__init__([par_coll,])
+            collections.insert(0, par_coll)
+            super(TypedSpec, self).__init__(collections)
         else:
             # create an empty list
-            super(TypedSpec, self).__init__()
+            if len(collections) > 0:
+                super(TypedSpec, self).__init__(collections)
+            else:
+                super(TypedSpec, self).__init__()
 
     def set_type(self, typename, typed_spec):
         if self.policy == 'standard' or self.policy == 'inline':
@@ -622,6 +644,12 @@ class TypedSpec(Spec):
             typed_sublist = Parameter(sublist_name, value=typed_spec)
             par_coll = ParameterCollection([typed_sublist,])
             self.append(par_coll)
+        elif self.policy == 'sublistdash':
+            sublist_name = (self.type+"-"+typename).replace(' ', '-')
+            # the typed spec goes under a new list whose name is typename
+            typed_sublist = Parameter(sublist_name, value=typed_spec)
+            par_coll = ParameterCollection([typed_sublist,])
+            self.append(par_coll)
         else:
             raise ValueError(f'Invalid policy "{self.policy}"')
         return self.get_sublist()
@@ -634,27 +662,29 @@ class TypedSpec(Spec):
             return self[plist_name]
         elif self.policy == 'inline':
             return self
-        elif self.policy == 'sublist':
+        elif self.policy.startswith('sublist'):
             return next(self.parameters()).get()
 
     def has_value(self):
-        if self.policy == 'sublist' and len(self) > 0:
+        if self.policy.startswith('sublist') and len(self) > 0:
             return True
         else:
             return super(TypedSpec, self).has_value()
 
     def copy(self):
-        return TypedSpec(self.type, self.policy)
+        others = None
+        if self.others is not None:
+            others = self.others.copy()
+        return TypedSpec(self.type, self.policy, others)
                 
 
 class SpecDict(collections.abc.MutableMapping):
     """A dictionary that returns by copy and fills sublists."""
     def __init__(self, *args, **kwargs):
         self._store = dict(*args, **kwargs)
-        self['list'] = ats_input_spec.specs.ParameterCollection(policy_not_in_spec='none')
+        self['list'] = ParameterCollection(policy_not_in_spec='none')
 
     def __getitem__(self, key):
-        print(f'Accessing known spec: {key}')
         # includes specs we can construct on the fly
         if key.endswith('-list'):
             contained = self[key[:-len('-list')]]
@@ -662,26 +692,45 @@ class SpecDict(collections.abc.MutableMapping):
             #result = ats_input_spec.specs.Spec([tc,])
             return tc
         elif key.endswith('-typed-spec'):
-            contained_name = key[:-len('-typed-spec')]
-            result = ats_input_spec.specs.TypedSpec(contained_name, policy='standard')
+            contained_name = key[:-len('-typed-spec')].replace('-', ' ')
+            if key in self._store:
+                others = self._store[key].copy()
+            else:
+                others = None
+            result = TypedSpec(contained_name, policy='standard', others=others)
         elif key.endswith('-typedinline-spec'):
-            contained_name = key[:-len('-typedinline-spec')]
-            result = ats_input_spec.specs.TypedSpec(contained_name, policy='inline')
+            contained_name = key[:-len('-typedinline-spec')].replace('-', ' ')
+            if key in self._store:
+                others = self._store[key].copy()
+            else:
+                others = None
+            result = TypedSpec(contained_name, policy='inline', others=others)
         elif key.endswith('-typedsublist-spec'):
-            contained_name = key[:-len('-typedsublist-spec')]
-            result = ats_input_spec.specs.TypedSpec(contained_name, policy='sublist')
+            contained_name = key[:-len('-typedsublist-spec')].replace('-', ' ')
+            if key in self._store:
+                others = self._store[key].copy()
+            else:
+                others = None
+            result = TypedSpec(contained_name, policy='sublist', others=others)
+        elif key.endswith('-typedsublistdash-spec'):
+            contained_name = key[:-len('-typedsublistdash-spec')].replace('-', ' ')
+            if key in self._store:
+                others = self._store[key].copy()
+            else:
+                others = None
+            result = TypedSpec(contained_name, policy='sublistdash', others=others)
         else:
             result = self._store[key].copy()
 
-        # add in includes, recursively
+        # add in included specs, recursively
         if hasattr(result, 'includes'):
             while len(result.includes) > 0:
                 for included_spec in copy.copy(result.includes):
-                    result.update(self[included_spec])
-                    result.includes.pop(included_spec)
+                    result.update(self[included_spec[0]])
+                    result.includes.remove(included_spec)
 
         # now fill the result
-        ats_input_spec.specs.populate_specs(result, self)
+        populate_specs(result, self)
         return result
             
     def __iter__(self):

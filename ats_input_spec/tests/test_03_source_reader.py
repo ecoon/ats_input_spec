@@ -87,8 +87,9 @@ spec_text = """
 def test_read_multiple():
     assert(len(spec_text) == 5)
     print("My length in test:", len(spec_text))
-    i, name, speclist, others = ats_input_spec.source_reader.read_this_scope(0,spec_text)
-    assert(len(list(speclist.parameters())) == 3)
+    i, name, objects, others = ats_input_spec.source_reader.read_this_scope(0,spec_text)
+    assert(len(objects) == 1)
+    assert(len(list(objects[0].parameters())) == 3)
 
 
 spec_text2 = """
@@ -132,7 +133,7 @@ def test_new_style_specs():
         specs.append((specname, objects))
     assert(len(specs) == 1)
     assert(len(objects) == 1)
-    assert(len(objects[0].parameters()) == 3)
+    assert(len(list(objects[0].parameters())) == 3)
 
 
 spec_text4 = """
@@ -152,7 +153,7 @@ def test_empty_spec():
     assert(len(specs) == 1)
     assert(specs[0][0] == "an-empty-spec")
     assert(len(objects) == 1)
-    assert(len(list(objects.parameters())) == 0)
+    assert(len(list(objects[0].parameters())) == 0)
     
     
 def test_to_specname():
@@ -202,12 +203,11 @@ def test_oneof_in_cv():
         specs.append((specname, objects))
 
     assert(len(specs) == 1)
-    assert(specs[0][0] == 'composite-vector-function-spec')
-    assert(len(specs[0][1]) == 3) # 2 oneofs and a plist
-
-    assert(len(objects[0].collections) == 2)
+    assert(specname == 'composite-vector-function-spec')
+    assert(len(objects) == 3) # two one-ofs and a parameter
+    assert(len(objects[0].collections) == 2) # two branches in the oneof for region
     assert(next(objects[0].collections[0].parameters()).name == 'region')
-    assert(len(objects[1].collections) == 2)
+    assert(len(objects[1].collections) == 2) # two branches in the oneof for component
     assert(next(objects[1].collections[0].parameters()).name == 'component')
-    assert(len(objects[2]) == 1)
+    assert(len(objects[2]) == 1) # one parameter in the parlist
 

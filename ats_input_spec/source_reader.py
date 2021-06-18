@@ -12,7 +12,6 @@ the input spec in that file.
 
 import os
 import logging
-import ats_input_spec.xml.primitives
 import ats_input_spec.specs
 import logging
 
@@ -154,7 +153,7 @@ def parameter_from_lines(lines):
 
     # convert the ptype to primitive
     try:
-        ptype = ats_input_spec.xml.primitives.xml_to_primitive[ptype]
+        ptype = ats_input_spec.primitives.text_to_primitive[ptype]
     except KeyError:
         is_primitive = False
         if default is not None:
@@ -164,7 +163,7 @@ def parameter_from_lines(lines):
 
     # convert the default to a primitive
     if default is not None:
-        default = ats_input_spec.xml.primitives.valid_primitive_from_string(ptype, default)
+        default = ats_input_spec.primitives.valid_primitive_from_string(ptype, default)
 
     # return the spec object
     if is_primitive:
@@ -302,13 +301,9 @@ def getnext_oneof(i_in, comments):
 
     i = i_in + 1
     while i < len(comments):
-        i_new, junk, objs, junk2 = read_this_scope(i, comments)
-        assert(i_new >= i)
+        i_new, obj = read_this_inner_scope(i, comments)
         i = i_new
-        assert(junk is None)
-        if len(list(objs.parameters())) == 0:
-            raise RuntimeError('In reading a ONE OF, one of the branches is empty.')
-        branches.append(objs)
+        branches.append(obj)
 
         line = comments[i].strip()
         logging.debug(f'in ONE OF, delimiter line = {line}')
@@ -368,9 +363,8 @@ def getnext_if(i_in, comments):
     assert(comments[i_in].strip().startswith("IF"))
 
     # read the conditional, always present
-    i, junk, objs, junk2 = read_this_scope(i_in+1, comments)
-    assert(junk is None)
-    case_pars = list(objs.parameters())
+    i, obj = read_this_inner_scope(i_in+1, comments)
+    case_pars = list(obj.parameters())
     if len(case_pars) != 1:
         raise RuntimeError('Conditional IF may only have one boolean parameter.')
     case = case_pars[0]
@@ -381,10 +375,8 @@ def getnext_if(i_in, comments):
 
     # check for then block
     if line.startswith("THEN"):
-        i, junk, objs, junk2 = read_this_scope(i+1, comments)
-        assert(junk is None)
-        assert(len(objs) is 1)
-        branches[True] = objs[0]
+        i, obj = read_this_inner_scope(i+1, comments)
+        branches[True] = obj
 
         line = comments[i].strip()
         logging.debug(f'after THEN, delimiter line = {line}')
@@ -394,10 +386,8 @@ def getnext_if(i_in, comments):
 
     # check for ELSE block
     if line.startswith("ELSE"):
-        i, junk, objs, junk2 = read_this_scope(i+1, comments)
-        assert(junk is None)
-        assert(len(objs) is 1)
-        branches[False] = objs[0]
+        i, obj = read_this_inner_scope(i+1, comments)
+        branches[False] = obj
 
         line = comments[i].strip()
         logging.debug(f'after ELSE, delimiter line = {line}')
@@ -417,10 +407,10 @@ def read_this_scope(i_in, comments):
     logging.debug(f"reading scope starting at line: {i_in} = {comments[i_in]}")
     parameters = []
     objects =[]
-    others = dict(INCLUDES=list(),
-                  KEYS=list(),
-                  EVALUATORS=list(),
-                  DEPENDENCIES=list()
+    others = dict(includes=list(),
+                  keys=list(),
+                  evaluators=list(),
+                  dependencies=list()
                   )
     specname = None
 
@@ -467,25 +457,25 @@ def read_this_scope(i_in, comments):
             i_new, reqs = getnext_evaluators(i, comments)
             assert(i_new > i)
             i = i_new
-            others['EVALUATORS'] = reqs
+            others['evaluators'] = reqs
             
         elif line.startswith("KEYS"):
             i_new, keys = getnext_keys(i, comments)
             assert(i_new > i)
             i = i_new
-            others['KEYS'] = keys
+            others['keys'] = keys
 
         elif line.startswith("INCLUDES"):
             i_new, incs = getnext_includes(i, comments)
             assert(i_new > i)
             i = i_new
-            others['INCLUDES'] = incs
+            others['includes'] = incs
 
         elif line.startswith("DEPENDENCIES"):
             i_new, deps = getnext_dependencies(i, comments)
             assert(i_new > i)
             i = i_new
-            others['DEPENDENCIES'] = deps
+            others['dependencies'] = deps
             
         elif line.startswith("-"):
             # items are not processed in a scope, likely this is a RST
@@ -498,7 +488,19 @@ def read_this_scope(i_in, comments):
 
     objects.append(ats_input_spec.specs.ParameterCollection(parameters))
     logging.debug(f"done reading scope ranging from {i_in} to {i}")
-    return i, specname, ats_input_spec.specs.Spec(objects), others
+    return i, specname, objects, others
+
+def read_this_inner_scope(i, comments):
+    i_new, junk, objs, junk2 = read_this_scope(i, comments)
+    try:
+        assert(i_new >= i) # should have moved forward
+        assert(junk is None) # should not get a new name
+        assert(len(objs) == 1) # prohibiting nested for now
+        assert(len(list(objs[0].parameters())) > 0)
+    except AssertionError:
+        raise RuntimeError('Problem reading ONEOF scope.')
+
+    return i_new, objs[0]
 
 def read(filename):
     with open(filename, 'r') as fid:
@@ -509,14 +511,14 @@ def read_lines(name, comments):
     specs = ats_input_spec.specs.SpecDict()
     i = 0
     while i < len(comments):
-        i_new, specname, objects, reqs = read_this_scope(i,comments)
+        i_new, specname, objects, others = read_this_scope(i,comments)
         if i_new <= i:
             raise RuntimeError('Developer Error, malformed file, or other generic bad behavior.')
         else:
             i = i_new
         if specname is None:
             specname = to_specname(name)
-        specs[specname] = ats_input_spec.specs.Spec(objects, **reqs)
+        specs[specname] = ats_input_spec.specs.Spec(objects, **others)
     return specs
 
 
