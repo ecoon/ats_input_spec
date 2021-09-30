@@ -278,7 +278,7 @@ class Spec(collections.abc.MutableSequence):
             try:
                 return next(c[i] for c in self.collections if i in c)
             except StopIteration:
-                raise KeyError(f'Specs does not have parameter entry {i}')
+                raise KeyError(f'Spec does not have parameter entry {i}')
 
     def _find_key(self, k):
         """A private implementation that returns the index of the branch."""
