@@ -258,11 +258,11 @@ def add_observations_water_balance(main, region,
                                    has_canopy=True, time_args=None):
     region_us = region.replace(' ', '_')
     if surface_region is None:
-        surface_region = region
+        surface_region = region+' surface'
     if boundary_region is None:
         boundary_region = region + ' boundary'
     if surface_boundary_region is None:
-        surface_boundary_region = surface_region + ' boundary'
+        surface_boundary_region = boundary_region
     if outlet_region is None:
         outlet_region = surface_region + ' outlet'
 
@@ -287,14 +287,14 @@ def add_observations_water_balance(main, region,
                              'extensive integral', 'face', time_integrated=True)
     observ2['direction normalized flux'] = True
     if region != 'computational domain':
-        observ1['direction normalized flux relative to region'] = surface_region
+        observ2['direction normalized flux relative to region'] = surface_region
 
     # - subsurface groundwater net gain/loss
     observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'mass_flux', boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
-        observ1['direction normalized flux relative to region'] = region
+        observ3['direction normalized flux relative to region'] = region
 
     
     # - surface average quantities
