@@ -300,9 +300,6 @@ def add_observations_water_balance(main, region,
     # - surface average quantities
     flux_to_obs = [('surface-precipitation_rain','rain precipitation [m d^-1]'),
                    ('snow-precipitation', 'snow precipitation [m d^-1]'),
-                   ('surface-air_temperature', 'air temperature [K]'),
-                   ('surface-relative_humidity', 'relative humidity [-]'),
-                   ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),
                    ('surface-evaporation', 'surface evaporation [m d^-1]'),
                    ('snow-evaporation', 'snow evaporation [m d^-1]'),
                    ('surface-transpiration', 'transpiration [m d^-1]'),
@@ -310,6 +307,10 @@ def add_observations_water_balance(main, region,
                    ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),]
     ext_to_obs = [('surface-water_content', 'surface water content [mol]'),
                   ('snow-water_content', 'snow water content [mol]'),]
+    avg_to_obs = [('surface-air_temperature', 'air temperature [K]'),
+                  ('surface-relative_humidity', 'relative humidity [-]'),
+                  ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),]
+
 
     if has_canopy:
         flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
@@ -320,7 +321,11 @@ def add_observations_water_balance(main, region,
                         'average', 'cell', True)
     for ext_obs_var, ext_obs_name in ext_to_obs:
         add_observeable(obs, ext_obs_name, ext_obs_var, surface_region,
-                        'extensive integral', 'cell')
+                        'extensive integral', 'cell', False)
+    for avg_obs_var, avg_obs_name in avg_to_obs:
+        add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
+                        'average', 'cell', False)
+
     add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
                     'extensive integral', 'cell')
               
