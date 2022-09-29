@@ -162,13 +162,13 @@ def valid_primitive_from_string(ptype, value):
         return valid_bool_from_string(value)
     elif ptype is str:
         return value
-    elif ptype is rp.ListFloat:
+    elif ptype is ListFloat:
         return [valid_float_from_string(p) for p in list_from_string(value)]
-    elif ptype is rp.ListInt:
+    elif ptype is ListInt:
         return [valid_int_from_string(p) for p in list_from_string(value)]
-    elif ptype is rp.ListBool:
+    elif ptype is ListBool:
         return [valid_bool_from_string(p) for p in list_from_string(value)]
-    elif ptype is rp.ListStr:
+    elif ptype is ListStr:
         return list_from_string(value)
 
 def string_from_primitive(value):

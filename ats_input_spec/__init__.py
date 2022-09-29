@@ -53,12 +53,6 @@ def setup_logging(verbosity, logfile=None):
                             format='%(asctime)s - %(name)s - %(levelname)s: %(message)s')
 
 
-#
-# load known specs from source
-#
-def load_known_specs():
-    import ats_input_spec.known_specs
-    ats_input_spec.known_specs.load()
         
     
     

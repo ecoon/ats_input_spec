@@ -498,7 +498,7 @@ def read_this_inner_scope(i, comments):
         assert(len(objs) == 1) # prohibiting nested for now
         assert(len(list(objs[0].parameters())) > 0)
     except AssertionError:
-        raise RuntimeError('Problem reading ONEOF scope.')
+        raise RuntimeError('Problem reading inner scope.')
 
     return i_new, objs[0]
 
