@@ -398,7 +398,7 @@ def add_daymet_point_evaluators(main, daymet_filename):
                    ]
     for var, name in daymet_vars:
         ev = main['state']['evaluators'].append_empty(var)
-        ev.set_type('independent variable', known_specs['independent-variable-evaluator-spec'])
+        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -426,7 +426,7 @@ def add_daymet_box_evaluators(main, daymet_filename):
                    ]
     for var, name in daymet_vars:
         ev = main['state']['evaluators'].append_empty(var)
-        ev.set_type('independent variable', known_specs['independent-variable-evaluator-spec'])
+        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -454,7 +454,7 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
             fe = main['state']['evaluators'][key]
         except KeyError:
             fe = main['state']['evaluators'].append_empty(key)
-            fe.set_type('independent variable', known_specs['independent-variable-evaluator-spec'])
+            fe.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
             fe['constant in time'] = True
         sublist = fe['function'].append_empty(region_name)
         sublist['region'] = region_name
