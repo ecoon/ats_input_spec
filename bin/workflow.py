@@ -3,8 +3,8 @@ import ats_input_spec.public
 
 
 main = ats_input_spec.public.get_main()
-poro_eval = main['state']['field evaluators'].append_empty('base_porosity')
-poro_eval.set_type('independent variable', ats_input_spec.public.known_specs['independent-variable-evaluator-spec'])
+poro_eval = main['state']['evaluators'].append_empty('base_porosity')
+poro_eval.set_type('independent variable', ats_input_spec.public.known_specs['independent-variable-function-evaluator-spec'])
 poro_eval['constant in time'] = True
 
 

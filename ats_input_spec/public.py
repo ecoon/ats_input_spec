@@ -371,8 +371,8 @@ def set_pk_evaluator_requirements(main, pk):
             else:
                 name = suffix
 
-        if name not in main["state"]["field evaluators"].keys():
-            main["state"]["field evaluators"].append_empty(name)
+        if name not in main["state"]["evaluators"].keys():
+            main["state"]["evaluators"].append_empty(name)
 
 
 #
@@ -397,8 +397,8 @@ def add_daymet_point_evaluators(main, daymet_filename):
                    ('surface-incoming_shortwave_radiation','incoming shortwave radiation [W m^-2]'),
                    ]
     for var, name in daymet_vars:
-        ev = main['state']['field evaluators'].append_empty(var)
-        ev.set_type('independent variable', known_specs['independent-variable-evaluator-spec'])
+        ev = main['state']['evaluators'].append_empty(var)
+        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -425,8 +425,8 @@ def add_daymet_box_evaluators(main, daymet_filename):
                    ('surface-incoming_shortwave_radiation','incoming shortwave radiation [W m^-2]'),
                    ]
     for var, name in daymet_vars:
-        ev = main['state']['field evaluators'].append_empty(var)
-        ev.set_type('independent variable', known_specs['independent-variable-evaluator-spec'])
+        ev = main['state']['evaluators'].append_empty(var)
+        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -451,10 +451,10 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
 
     def add_entry(key, value):
         try:
-            fe = main['state']['field evaluators'][key]
+            fe = main['state']['evaluators'][key]
         except KeyError:
-            fe = main['state']['field evaluators'].append_empty(key)
-            fe.set_type('independent variable', known_specs['independent-variable-evaluator-spec'])
+            fe = main['state']['evaluators'].append_empty(key)
+            fe.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
             fe['constant in time'] = True
         sublist = fe['function'].append_empty(region_name)
         sublist['region'] = region_name
@@ -471,9 +471,9 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
     # add the entry for pore compressibility
     if compressibility is not None:
         try:
-            fe = main['state']['field evaluators'][compressibility_key]
+            fe = main['state']['evaluators'][compressibility_key]
         except KeyError:
-            fe = main['state']['field evaluators'].append_empty(compressibility_key)
+            fe = main['state']['evaluators'].append_empty(compressibility_key)
             fe.set_type('compressible porosity', known_specs['compressible-porosity-evaluator-spec'])
         sublist = fe['compressible porosity model parameters'].append_empty(region_name)
         sublist['region'] = region_name
