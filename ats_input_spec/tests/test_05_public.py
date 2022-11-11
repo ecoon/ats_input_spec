@@ -57,12 +57,12 @@ def test_add_domain(main):
 def test_add_daymet(main):
     ats_input_spec.public.add_daymet_point_evaluators(main, 'mymet.h5')
     print(main)
-    assert(main['state']['evaluators'].is_complete())
+    assert(main['state']['field evaluators'].is_complete())
 
 def test_add_daymet_box(main):
     ats_input_spec.public.add_daymet_box_evaluators(main, 'mymet.h5')
     print(main)
-    assert(main['state']['evaluators'].is_complete())
+    assert(main['state']['field evaluators'].is_complete())
 
 
 def test_add_observation(main):
@@ -77,11 +77,9 @@ def test_add_observation(main):
 
 
 def test_add_water_balance(main):
-    ats_input_spec.public.add_observations_water_balance(
-        main, 'computational domain', 'surface domain',
-        has_canopy=True,
-        time_args={'times start period stop':[0.,1.,-1.],
-                   'times start period stop units':'d'})
+    ats_input_spec.public.add_observations_water_balance(main, 'surface domain', 'computational domain', True,
+                                                         time_args={'times start period stop':[0.,1.,-1.],
+                                                                    'times start period stop units':'d'})
     print(main)
     assert(main['observations'].is_complete())
 
@@ -97,7 +95,7 @@ def test_add_wrm(main):
                                         porosity=0.5, permeability=1.e-10, compressibility=1.e-7,
                                         van_genuchten_alpha=0.0001, van_genuchten_n=1.54, residual_sat=0.05, smoothing_interval=0.01)
     print(main)
-    assert(main['state']['evaluators'].is_complete())
+    assert(main['state']['field evaluators'].is_complete())
     assert(main['PKs']['flow']['water retention evaluator'].is_complete())
 
 
