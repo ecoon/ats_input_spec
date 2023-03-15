@@ -227,7 +227,7 @@ def add_observeable(obs, name, variable, region, functional, entity_type,
         observ['region'] = region
     else:
         observ['regions'] = region
-    observ['functional'] = functional
+    observ['reduction'] = functional
     observ['location name'] = entity_type
     observ['time integrated'] = time_integrated
 
@@ -282,6 +282,25 @@ def add_observations_water_balance(main, region,
     if region != 'computational domain':
         observ1['direction normalized flux relative to region'] = surface_region
 
+    observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+                             'extensive integral', 'face', time_integrated=True)
+    observ1a['direction normalized flux'] = True
+    mod1a = observ1a['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
+    mod1a['operator'] = 'positive'
+    mod1a['amplitude'] = 1.0
+    mod1a['shift'] = 0.0
+
+    observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+                             'extensive integral', 'face', time_integrated=True)
+    observ1b['direction normalized flux'] = True
+    mod1b = observ1b['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
+    mod1b['operator'] = 'negative'
+    mod1b['amplitude'] = -1.0
+    mod1b['shift'] = 0.0
+    
+    if region != 'computational domain':
+        observ1['direction normalized flux relative to region'] = surface_region
+        
     # - runoff from the outlet
     observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-mass_flux', outlet_region,
                              'extensive integral', 'face', time_integrated=True)
@@ -430,7 +449,7 @@ def add_daymet_box_evaluators(main, daymet_filename):
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
-        ft = entry['function'].set_type('bilinear-and-time',
+        ft = entry['function'].set_type('bilinear and time',
                                         known_specs['function-bilinear-and-time-spec'])
         ft['file'] = daymet_filename
         ft['row header'] = 'y [m]'

@@ -1,4 +1,11 @@
 <ParameterList name="Main" type="ParameterList">
+  <ParameterList name="cycle driver" type="ParameterList">
+    <Parameter name="end time" type="double" value=" 1" />
+    <Parameter name="end time units" type="string" value="yr" />
+    <ParameterList name="required times" type="ParameterList">
+      <Parameter name="times start period stop" type="Array(double)" value="{ 0,86400,-86400}" />
+    </ParameterList>
+  </ParameterList>
   <ParameterList name="mesh" type="ParameterList">
     <ParameterList name="domain" type="ParameterList">
       <Parameter name="mesh type" type="string" value="read mesh file" />
@@ -10,26 +17,22 @@
 
   <ParameterList name="regions" type="ParameterList">
     <ParameterList name="computational domain" type="ParameterList">
-      <ParameterList name="region: all" type="ParameterList">
-        <Parameter name="empty" type="bool" value="true" />
-      </ParameterList>
+      <Parameter name="region type" type="string" value="all" />
+      <Parameter name="empty" type="bool" value="true" />
+    </ParameterList>
+    <ParameterList name="computational domain boundary" type="ParameterList">
+      <Parameter name="region type" type="string" value="boundary" />
+      <Parameter name="entity" type="string" value="FACE" />
     </ParameterList>
   </ParameterList>
 
-  <ParameterList name="cycle driver" type="ParameterList">
-    <Parameter name="end time" type="double" value="1.00000000" />
-    <Parameter name="end time units" type="string" value="yr" />
-    <ParameterList name="required times" type="ParameterList">
-      <Parameter name="times start period stop" type="Array(double)" value="{0.00000000,86400.00000000,-86400.00000000}" />
-    </ParameterList>
-  </ParameterList>
   <ParameterList name="visualization" type="ParameterList">
     <ParameterList name="domain" type="ParameterList">
-      <Parameter name="times start period stop" type="Array(double)" value="{0.00000000,86400.00000000,-86400.00000000}" />
+      <Parameter name="times start period stop" type="Array(double)" value="{ 0,86400,-86400}" />
     </ParameterList>
   </ParameterList>
 
   <ParameterList name="checkpoint" type="ParameterList">
-    <Parameter name="times start period stop" type="Array(double)" value="{0.00000000,31536000.00000000,-31536000.00000000}" />
+    <Parameter name="times start period stop" type="Array(double)" value="{ 0,31536000,-31536000}" />
   </ParameterList>
 </ParameterList>
