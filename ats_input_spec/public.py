@@ -166,7 +166,6 @@ def set_land_cover_default_constants(main, land_cover_name):
     lc['albedo of bare ground [-]'] = 0.4
     lc['emissivity of bare ground [-]'] = 0.98
     lc['albedo of canopy [-]'] = 0.11
-    lc['emissivity of canopy [-]'] = 0.95
     
     lc["Beer's law extinction coefficient, shortwave [-]"] = 0.6
     lc["Beer's law extinction coefficient, longwave [-]"] = 5
@@ -276,13 +275,13 @@ def add_observations_water_balance(main, region,
 
     # add observables
     # - net runoff - runon
-    observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+    observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1['direction normalized flux'] = True
     if region != 'computational domain':
         observ1['direction normalized flux relative to region'] = surface_region
 
-    observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+    observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1a['direction normalized flux'] = True
     mod1a = observ1a['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
@@ -290,7 +289,7 @@ def add_observations_water_balance(main, region,
     mod1a['amplitude'] = 1.0
     mod1a['shift'] = 0.0
 
-    observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+    observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1b['direction normalized flux'] = True
     mod1b = observ1b['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
@@ -302,14 +301,14 @@ def add_observations_water_balance(main, region,
         observ1['direction normalized flux relative to region'] = surface_region
         
     # - runoff from the outlet
-    observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-mass_flux', outlet_region,
+    observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-water_flux', outlet_region,
                              'extensive integral', 'face', time_integrated=True)
     observ2['direction normalized flux'] = True
     if region != 'computational domain':
         observ2['direction normalized flux relative to region'] = surface_region
 
     # - subsurface groundwater net gain/loss
-    observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'mass_flux', boundary_region,
+    observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'water_flux', boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
