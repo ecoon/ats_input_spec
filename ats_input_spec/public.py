@@ -276,13 +276,13 @@ def add_observations_water_balance(main, region,
 
     # add observables
     # - net runoff - runon
-    observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+    observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1['direction normalized flux'] = True
     if region != 'computational domain':
         observ1['direction normalized flux relative to region'] = surface_region
 
-    observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+    observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1a['direction normalized flux'] = True
     mod1a = observ1a['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
@@ -290,7 +290,7 @@ def add_observations_water_balance(main, region,
     mod1a['amplitude'] = 1.0
     mod1a['shift'] = 0.0
 
-    observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-mass_flux', surface_boundary_region,
+    observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1b['direction normalized flux'] = True
     mod1b = observ1b['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
@@ -302,14 +302,14 @@ def add_observations_water_balance(main, region,
         observ1['direction normalized flux relative to region'] = surface_region
         
     # - runoff from the outlet
-    observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-mass_flux', outlet_region,
+    observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-water_flux', outlet_region,
                              'extensive integral', 'face', time_integrated=True)
     observ2['direction normalized flux'] = True
     if region != 'computational domain':
         observ2['direction normalized flux relative to region'] = surface_region
 
     # - subsurface groundwater net gain/loss
-    observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'mass_flux', boundary_region,
+    observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'water_flux', boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
@@ -322,17 +322,24 @@ def add_observations_water_balance(main, region,
                    ('surface-evaporation', 'surface evaporation [m d^-1]'),
                    ('snow-evaporation', 'snow evaporation [m d^-1]'),
                    ('surface-transpiration', 'transpiration [m d^-1]'),
+                   ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
                    ('snow-melt', 'snowmelt [m d^-1]'),
-                   ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),]
+                   ('surface-surface_subsurface_flux', 'exfiltration [mol d^-1]'),]
     ext_to_obs = [('surface-water_content', 'surface water content [mol]'),
-                  ('snow-water_content', 'snow water content [mol]'),]
+                  ('snow-water_content', 'snow water content [mol]'),
+                  ]
     avg_to_obs = [('surface-air_temperature', 'air temperature [K]'),
-                  ('surface-relative_humidity', 'relative humidity [-]'),
+                  ('snow-water_equivalent', 'snow water equivalent [m]'),
+                #   ('surface-relative_humidity', 'relative humidity [-]'),
                   ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),]
 
-
     if has_canopy:
-        flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
+        flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),
+                            ('canopy-drainage', 'canopy drainage [m d^-1]'),
+                            ('canopy-throughfall_drainage_rain', 'water to surface [m d^-1]'),
+                            ('canopy-throughfall_drainage_snow', 'snow to surface [m d^-1]'),
+                            ('canopy-interception', 'canopy interception [m d^-1]'),
+                            ])
         ext_to_obs.extend([('canopy-water_content', 'canopy water content [mol]'),])
 
     for flux_obs_var, flux_obs_name in flux_to_obs:
@@ -345,6 +352,7 @@ def add_observations_water_balance(main, region,
         add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
                         'average', 'cell', False)
 
+    # - subsurface quantities
     add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
                     'extensive integral', 'cell')
               
