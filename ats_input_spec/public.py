@@ -166,7 +166,7 @@ def set_land_cover_default_constants(main, land_cover_name):
     lc['albedo of bare ground [-]'] = 0.4
     lc['emissivity of bare ground [-]'] = 0.98
     lc['albedo of canopy [-]'] = 0.11
-    lc['emissivity of canopy [-]'] = 0.95
+ #   lc['emissivity of canopy [-]'] = 0.95
     
     lc["Beer's law extinction coefficient, shortwave [-]"] = 0.6
     lc["Beer's law extinction coefficient, longwave [-]"] = 5
@@ -397,6 +397,25 @@ def set_pk_evaluator_requirements(main, pk):
 #
 # evaluators
 #
+def add_lai_evaluators(main, lai_filename, lc_names=None):
+    """add LAI evaluators for each land cover type"""
+    if lc_names is None:
+        try:
+            lc_names = main['state']['initial conditions']['land cover types'].keys()
+        except KeyError:
+            raise RuntimeError("Must provide lc_names before adding LAI evaluators.")
+
+    ev = main['state']['evaluators'].append_empty('canopy-leaf_area_index')
+    ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+    for lc in lc_names:
+        entry = ev['function'].append_empty(lc)
+        entry['region'] = lc
+        entry['component'] = 'cell'
+        ft = entry['function'].set_type('tabular', known_specs['function-tabular-fromfile-spec'])
+        ft['file'] = lai_filename
+        ft['x header'] = 'time [s]'
+        ft['y header'] = lc + ' LAI [-]'
+
 def add_daymet_point_evaluators(main, daymet_filename):
     """Adds the "standard" DayMet evaluators, based on a given file.
 
