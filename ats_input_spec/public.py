@@ -321,17 +321,24 @@ def add_observations_water_balance(main, region,
                    ('surface-evaporation', 'surface evaporation [m d^-1]'),
                    ('snow-evaporation', 'snow evaporation [m d^-1]'),
                    ('surface-transpiration', 'transpiration [m d^-1]'),
+                   ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
                    ('snow-melt', 'snowmelt [m d^-1]'),
-                   ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),]
+                   ('surface-surface_subsurface_flux', 'exfiltration [mol d^-1]'),]
     ext_to_obs = [('surface-water_content', 'surface water content [mol]'),
-                  ('snow-water_content', 'snow water content [mol]'),]
+                  ('snow-water_content', 'snow water content [mol]'),
+                  ]
     avg_to_obs = [('surface-air_temperature', 'air temperature [K]'),
-                  ('surface-relative_humidity', 'relative humidity [-]'),
+                  ('snow-water_equivalent', 'snow water equivalent [m]'),
+                #   ('surface-relative_humidity', 'relative humidity [-]'),
                   ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),]
 
-
     if has_canopy:
-        flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
+        flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),
+                            ('canopy-drainage', 'canopy drainage [m d^-1]'),
+                            ('canopy-throughfall_drainage_rain', 'water to surface [m d^-1]'),
+                            ('canopy-throughfall_drainage_snow', 'snow to surface [m d^-1]'),
+                            ('canopy-interception', 'canopy interception [m d^-1]'),
+                            ])
         ext_to_obs.extend([('canopy-water_content', 'canopy water content [mol]'),])
 
     for flux_obs_var, flux_obs_name in flux_to_obs:
@@ -344,6 +351,7 @@ def add_observations_water_balance(main, region,
         add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
                         'average', 'cell', False)
 
+    # - subsurface quantities
     add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
                     'extensive integral', 'cell')
               
@@ -396,6 +404,25 @@ def set_pk_evaluator_requirements(main, pk):
 #
 # evaluators
 #
+def add_lai_evaluators(main, lai_filename, lc_names=None):
+    """add LAI evaluators for each land cover type"""
+    if lc_names is None:
+        try:
+            lc_names = main['state']['initial conditions']['land cover types'].keys()
+        except KeyError:
+            raise RuntimeError("Must provide lc_names before adding LAI evaluators.")
+
+    ev = main['state']['evaluators'].append_empty('canopy-leaf_area_index')
+    ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+    for lc in lc_names:
+        entry = ev['function'].append_empty(lc)
+        entry['region'] = lc
+        entry['component'] = 'cell'
+        ft = entry['function'].set_type('tabular', known_specs['function-tabular-fromfile-spec'])
+        ft['file'] = lai_filename
+        ft['x header'] = 'time [s]'
+        ft['y header'] = lc + ' LAI [-]'
+
 def add_daymet_point_evaluators(main, daymet_filename):
     """Adds the "standard" DayMet evaluators, based on a given file.
 
