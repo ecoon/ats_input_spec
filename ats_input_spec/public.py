@@ -166,7 +166,6 @@ def set_land_cover_default_constants(main, land_cover_name):
     lc['albedo of bare ground [-]'] = 0.4
     lc['emissivity of bare ground [-]'] = 0.98
     lc['albedo of canopy [-]'] = 0.11
- #   lc['emissivity of canopy [-]'] = 0.95
     
     lc["Beer's law extinction coefficient, shortwave [-]"] = 0.6
     lc["Beer's law extinction coefficient, longwave [-]"] = 5
