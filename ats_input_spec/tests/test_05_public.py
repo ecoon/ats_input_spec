@@ -98,6 +98,5 @@ def test_add_wrm(main):
                                         van_genuchten_alpha=0.0001, van_genuchten_n=1.54, residual_sat=0.05, smoothing_interval=0.01)
     print(main)
     assert(main['state']['evaluators'].is_complete())
-    assert(main['PKs']['flow']['water retention evaluator'].is_complete())
 
 

@@ -14,6 +14,7 @@ import os
 import logging
 import ats_input_spec.specs
 import logging
+import warnings
 
 _begin = "/*!"
 _end = "*/"
@@ -552,7 +553,7 @@ def load(path=None, on_empty=None, on_error=None):
     result = ats_input_spec.specs.SpecDict()
     for dirname, subdirs, files in os.walk(path):
         for f in files:
-            if f.endswith(".hh") and not f.endswith("_reg.hh"):
+            if f.endswith(".hh") and not f.endswith("_reg.hh") and not f.startswith('.'):
                 logging.debug("Reading file: %s"%f)
                 with open(os.path.join(dirname,f), 'r') as fid:
                     lines = ats_input_spec.source_reader.find_all_comments(fid)

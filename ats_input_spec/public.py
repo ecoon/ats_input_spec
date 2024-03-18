@@ -499,7 +499,12 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
 
     # add the entry for WRM
     if van_genuchten_alpha is not None and van_genuchten_n is not None and residual_sat is not None:
-        wrm = main['PKs']['flow']['water retention evaluator']['WRM parameters']
+        try:
+            wrm = main['state']['model parameters']['water retention model parameters']
+        except KeyError:
+            wrm = known_specs['wrm-typed-spec-list']
+            main['state']['model parameters']['water retention model parameters'] = wrm
+
         sublist = wrm.append_empty(region_name)
         sublist = sublist.set_type('van Genuchten', known_specs['WRM-van-Genuchten-spec'])
         sublist['region'] = region_name
