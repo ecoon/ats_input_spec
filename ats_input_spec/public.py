@@ -147,7 +147,7 @@ def set_typical_constants(main):
     grav["value"] = [0.,0.,-9.80665]
     main["state"]["initial conditions"]["gravity"] = grav
 
-def set_land_cover_default_constants(main, land_cover_name):
+def set_land_cover_default_constants(main, land_cover_name, transpiration_model='clm'):
     """Adds an empty land cover list, and populates it with "standard" default values."""
     try:
         lc_list = main['state']['initial conditions']['land cover types']
@@ -169,26 +169,20 @@ def set_land_cover_default_constants(main, land_cover_name):
     
     lc["Beer's law extinction coefficient, shortwave [-]"] = 0.6
     lc["Beer's law extinction coefficient, longwave [-]"] = 5
+
+    if transpiration_model == 'rel perm':
+        lc["maximum xylem capillary pressure [Pa]"] = 2240000
+    elif transpiration_model == 'clm':
+        lc["capillary pressure at fully open stomata [Pa]"] = 3500
+        lc["capillary pressure at fully closed stomata [Pa]"] = 224000
     
     lc["snow transition depth [m]"] = 0.02
-    lc["dessicated zone thickness [m]"] = 0.1
-    lc["Clapp and Hornberger b [-]"] = 1
     
     # defaults for grass/no vei
     lc['rooting depth max [m]'] = 5.
     lc['rooting profile alpha [-]'] = 11.0
     lc['rooting profile beta [-]'] = 2.0
 
-    # Note, the mafic potential values are likely pretty bad for the types of van Genuchten 
-    # curves we are using (https://www.sciencedirect.com/science/article/pii/S0168192314000483).
-    # Likely they need to be modified.  Note that these values are in [mm] from CLM TN 4.5 table 8.1, so the 
-    # factor of 10 converts to [Pa].
-    #
-    # instead of using a factor of 10, we use a factor of 1 for closed and .1 for open to make this more 
-    # physically viable for our VG models
-    lc['mafic potential at fully closed stomata [Pa]'] = 275000.
-    lc['mafic potential at fully open stomata [Pa]'] = 74000. * .1
-    
     # by default we let the LAI take care of this rather than turn off deciduous 
     # transpiration manually the way that PRMS does it. 
     lc['leaf on time [doy]'] = -1
@@ -313,7 +307,6 @@ def add_observations_water_balance(main, region,
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
         observ3['direction normalized flux relative to region'] = region
-
     
     # - surface average quantities
     flux_to_obs = [('surface-precipitation_rain','rain precipitation [m d^-1]'),
@@ -322,13 +315,15 @@ def add_observations_water_balance(main, region,
                    ('snow-evaporation', 'snow evaporation [m d^-1]'),
                    ('surface-transpiration', 'transpiration [m d^-1]'),
                    ('snow-melt', 'snowmelt [m d^-1]'),
-                   ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),]
+                   ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
+                   ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),
+                   ]
     ext_to_obs = [('surface-water_content', 'surface water content [mol]'),
-                  ('snow-water_content', 'snow water content [mol]'),]
+                  ('snow-water_content', 'snow water content [mol]'),
+                  ]
     avg_to_obs = [('surface-air_temperature', 'air temperature [K]'),
-                  ('surface-relative_humidity', 'relative humidity [-]'),
-                  ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),]
-
+                  ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),
+                  ]
 
     if has_canopy:
         flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
@@ -346,7 +341,6 @@ def add_observations_water_balance(main, region,
 
     add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
                     'extensive integral', 'cell')
-              
     
     return obs
 
@@ -396,7 +390,7 @@ def set_pk_evaluator_requirements(main, pk):
 #
 # evaluators
 #
-def add_daymet_point_evaluators(main, daymet_filename):
+def add_daymet_point_evaluators(main, daymet_filename, include_surface_temperature=False):
     """Adds the "standard" DayMet evaluators, based on a given file.
 
     This includes the following evaluators:
@@ -404,14 +398,14 @@ def add_daymet_point_evaluators(main, daymet_filename):
     - snow-precipitation
     - surface-incoming_shortwave_radiation
     - surface-air_temperature
-    - surface-relative_humidity
+    - surface-vapor_pressure_air
     """
     global known_specs
     
     daymet_vars = [('surface-precipitation_rain','precipitation rain [m s^-1]'),
                    ('snow-precipitation','precipitation snow [m SWE s^-1]'),
                    ('surface-air_temperature','air temperature [K]'),
-                   ('surface-relative_humidity','relative humidity [-]'),
+                   ('surface-vapor_pressure_air','vapor pressure air [Pa]'),
                    ('surface-incoming_shortwave_radiation','incoming shortwave radiation [W m^-2]'),
                    ]
     for var, name in daymet_vars:
@@ -424,9 +418,31 @@ def add_daymet_point_evaluators(main, daymet_filename):
         ft['file'] = daymet_filename
         ft['x header'] = 'time [s]'
         ft['y header'] = name
+
+    if include_surface_temperature:
+        # set a surface-temperature as yesterday's air temp
+        name = 'air temperature [K]'
+        ev = main['state']['evaluators'].append_empty('surface-temperature')
+        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+        entry = ev['function'].append_empty('surface domain')
+        entry['region'] = 'surface domain'
+        entry['component'] = 'cell'
+        ft = entry['function'].set_type('composition', known_specs['function-composition-spec'])
+
+        ft['function1'].set_type('tabular', known_specs['function-tabular-fromfile-spec'])
+        ft['function1']['file'] = daymet_filename
+        ft['function1']['x header'] = 'time [s]'
+        ft['function1']['y header'] = name
+
+        # this function shifts the x-coordinate (time) by 1 day
+        ft['function2'].set_type('linear', known_specs['function-linear-spec'])
+        ft['function2']['x0'] = [86400.0, 0.0, 0.0]
+        ft['function2']['y0'] = 0.
+        ft['function2']['gradient'] = [1.0, 0.0, 0.0]
+    
         
 
-def add_daymet_box_evaluators(main, daymet_filename):
+def add_daymet_box_evaluators(main, daymet_filename, include_surface_temperature=False):
     """Adds the "standard" DayMet evaluators on a raster box, based on a given file.
 
     This includes the following evaluators:
@@ -434,12 +450,12 @@ def add_daymet_box_evaluators(main, daymet_filename):
     - snow-precipitation
     - surface-incoming_shortwave_radiation
     - surface-air_temperature
-    - surface-relative_humidity
+    - surface-vapor_pressure_air
     """
     daymet_vars = [('surface-precipitation_rain','precipitation rain [m s^-1]'),
                    ('snow-precipitation','precipitation snow [m SWE s^-1]'),
                    ('surface-air_temperature','air temperature [K]'),
-                   ('surface-relative_humidity','relative humidity [-]'),
+                   ('surface-vapor_pressure_air','vapor pressure air [Pa]'),
                    ('surface-incoming_shortwave_radiation','incoming shortwave radiation [W m^-2]'),
                    ]
     for var, name in daymet_vars:
@@ -458,6 +474,60 @@ def add_daymet_box_evaluators(main, daymet_filename):
         ft['time header'] = 'time [s]'
         ft['value header'] = name
 
+
+    if include_surface_temperature:
+        # set a surface-temperature as yesterday's air temp
+        name = 'air temperature [K]'
+        ev = main['state']['evaluators'].append_empty('surface-temperature')
+        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+        entry = ev['function'].append_empty('surface domain')
+        entry['region'] = 'surface domain'
+        entry['component'] = 'cell'
+        ft = entry['function'].set_type('composition', known_specs['function-composition-spec'])
+
+        ft['function1'].set_type('bilinear and time', known_specs['function-bilinear-and-time-spec'])
+        ft['function1']['file'] = daymet_filename
+        ft['function1']['row header'] = 'y [m]'
+        ft['function1']['column header'] = 'x [m]'
+        ft['function1']['row coordinate'] = 'y'
+        ft['function1']['column coordinate'] = 'x'
+        ft['function1']['time header'] = 'time [s]'
+        ft['function1']['value header'] = name
+
+        # this function shifts the x-coordinate (time) by 1 day
+        ft['function2'].set_type('linear', known_specs['function-linear-spec'])
+        ft['function2']['x0'] = [86400.0, 0.0, 0.0]
+        ft['function2']['y0'] = 0.
+        ft['function2']['gradient'] = [1.0, 0.0, 0.0]
+
+        
+def add_lai_point_evaluators(main, lai_filename, lc_types, crosswalk=None):
+    """Adds an LAI time series with one point for each LC type in lc_types"""
+    global known_specs
+    ev = main['state']['evaluators'].append_empty('canopy-leaf_area_index')
+    ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+
+    # other is 0 LAI
+    entry_other = ev['function'].append_empty('Other')
+    entry_other['region'] = 'Other'
+    entry_other['component'] = 'cell'
+    entry_other_func = entry_other['function'].set_type('constant', known_specs['function-constant-spec'])
+    entry_other_func['value'] = 0.
+
+    for lc_type in lc_types:
+        if lc_type != 'Other':
+            entry = ev['function'].append_empty(lc_type)
+            entry['region'] = lc_type
+            entry['component'] = 'cell'
+            func = entry['function'].set_type('tabular', known_specs['function-tabular-fromfile-spec'])
+            func['file'] = lai_filename
+            func['x header'] = 'time [s]'
+            if crosswalk is None:
+                func['y header'] = f'{lc_type} LAI [-]'
+            else:
+                func['y header'] = f'{crosswalk[lc_type]} LAI [-]'
+
+        
 def add_soil_type(main, region_name, label=None, filename=None, porosity=None, permeability=None, compressibility=None,
                   van_genuchten_alpha=None, van_genuchten_n=None, residual_sat=None, smoothing_interval=None,
                   porosity_key='base_porosity', permeability_key='permeability', compressibility_key='porosity',
@@ -500,10 +570,10 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
     # add the entry for WRM
     if van_genuchten_alpha is not None and van_genuchten_n is not None and residual_sat is not None:
         try:
-            wrm = main['state']['model parameters']['water retention model parameters']
+            wrm = main['state']['model parameters']['WRM parameters']
         except KeyError:
-            wrm = known_specs['wrm-typed-spec-list']
-            main['state']['model parameters']['water retention model parameters'] = wrm
+            wrm = known_specs['wrm-typedinline-spec-list']
+            main['state']['model parameters']['WRM parameters'] = wrm
 
         sublist = wrm.append_empty(region_name)
         sublist = sublist.set_type('van Genuchten', known_specs['WRM-van-Genuchten-spec'])
