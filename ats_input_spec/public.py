@@ -317,9 +317,7 @@ def add_observations_water_balance(main, region,
                    ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
                    ('snow-melt', 'snowmelt [m d^-1]'),
                    ('surface-surface_subsurface_flux', 'exfiltration [mol d^-1]'),]
-                   ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
-                   ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),
-                   ]
+
     ext_to_obs = [('surface-water_content', 'surface water content [mol]'),
                   ('snow-water_content', 'snow water content [mol]'),
                   ]
