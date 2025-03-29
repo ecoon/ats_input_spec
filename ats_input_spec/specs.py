@@ -244,6 +244,9 @@ class ParameterCollection(collections.abc.MutableMapping):
         pardict = dict((k,v.copy()) for (k,v) in self._pars.items())
         return ParameterCollection(pardict, self._policy_not_in_spec)
 
+    # def append_empty(self, k, v):
+    #     self._pars[k] = v
+
 
 class Spec(collections.abc.MutableSequence):
     """A collection of Collections, this defines a spec."""

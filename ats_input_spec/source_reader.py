@@ -14,6 +14,7 @@ import os
 import logging
 import ats_input_spec.specs
 import logging
+import warnings
 
 _begin = "/*!"
 _end = "*/"
@@ -72,6 +73,7 @@ def find_all_comments(stream):
             comment_lines.append(line)
     return comment_lines
                 
+
 def advance(i,comments):
     """Advances the pointer to the next magic word or parameter"""
     while i < len(comments):
@@ -86,6 +88,7 @@ def advance(i,comments):
             return i
         i += 1
     return i
+
 
 def parameter_from_lines(lines):
     """Reads a parameter or spec from a set of lines
@@ -171,6 +174,7 @@ def parameter_from_lines(lines):
         return ats_input_spec.specs.Parameter(name, ptype, default, optional)
     else:
         return ats_input_spec.specs.Parameter(name, ptype, optional=optional)
+
 
 def getnext_param(i_in, comments):
     """Reads a Parameter"""
@@ -345,17 +349,21 @@ def getnext_evaluators(i_in, comments):
     """Reads a continuous list of required evaluators."""
     return getnext_itemlist(i_in, comments, "EVALUATORS")
     
+
 def getnext_keys(i_in, comments):
     """Reads a list of key names."""
     return getnext_itemlist(i_in, comments, "KEYS")
+
 
 def getnext_dependencies(i_in, comments):
     """Reads a list of key names."""
     return getnext_itemlist(i_in, comments, "DEPENDENCIES")
 
+
 def getnext_includes(i_in, comments):
     """Reads a list of key names."""
     return getnext_itemlist(i_in, comments, "INCLUDES")
+
 
 def getnext_if(i_in, comments):
     """Reads an IF ... THEN ... ELSE ... ENDIF block"""
@@ -490,6 +498,7 @@ def read_this_scope(i_in, comments):
     logging.debug(f"done reading scope ranging from {i_in} to {i}")
     return i, specname, objects, others
 
+
 def read_this_inner_scope(i, comments):
     i_new, junk, objs, junk2 = read_this_scope(i, comments)
     try:
@@ -502,12 +511,8 @@ def read_this_inner_scope(i, comments):
 
     return i_new, objs[0]
 
-def read(filename):
-    with open(filename, 'r') as fid:
-        comments = find_all_comments(fid)
-    return read_lines(os.path.split(filename)[-1][:-3], comments)
 
-def read_lines(name, comments):
+def _load_specs_from_lines(name, comments):
     specs = ats_input_spec.specs.SpecDict()
     i = 0
     while i < len(comments):
@@ -522,22 +527,26 @@ def read_lines(name, comments):
     return specs
 
 
-def load_specs_from_lines(name, lines, on_error='error'):
+def load_specs_from_lines(filename, lines, on_error='error'):
     """Load specs from a collection of line-strings."""
+    name = os.path.split(filename)[-1]
+    if name.endswith('.hh'):
+        name = name[0:-3]
+
     if on_error == None:
         try:
-            result = ats_input_spec.source_reader.read_lines(name, lines)
+            result = ats_input_spec.source_reader._load_specs_from_lines(name, lines)
         except Exception:
             result = ats_input_spec.specs.SpecDict()
     elif on_error == 'warn':
         try:
-            result = ats_input_spec.source_reader.read_lines(name, lines)
+            result = ats_input_spec.source_reader._load_specs_from_lines(name, lines)
         except Exception as e:
-            warnings.warn(f'Failed loading from "{name}" with error:')
+            warnings.warn(f'Failed loading from "{filename}" with error:')
             warnings.warn(f'{e}')
             result = ats_input_spec.specs.SpecDict()
     elif on_error == 'error':
-        result = ats_input_spec.source_reader.read_lines(name, lines)
+        result = ats_input_spec.source_reader._load_specs_from_lines(name, lines)
     else:
         raise ValueError('Invalid value for on_error')
     assert(result is not None)
@@ -552,44 +561,18 @@ def load(path=None, on_empty=None, on_error=None):
     result = ats_input_spec.specs.SpecDict()
     for dirname, subdirs, files in os.walk(path):
         for f in files:
-            if f.endswith(".hh") and not f.endswith("_reg.hh"):
+            if f.endswith(".hh") and not f.endswith("_reg.hh") and not f.startswith('.'):
                 logging.debug("Reading file: %s"%f)
-                with open(os.path.join(dirname,f), 'r') as fid:
+                filename = os.path.join(dirname,f)
+                with open(filename, 'r') as fid:
                     lines = ats_input_spec.source_reader.find_all_comments(fid)
-                l_result = load_specs_from_lines(f[:-3], lines, on_error)
+                l_result = load_specs_from_lines(filename, lines, on_error)
                 if len(l_result) == 0:
                     if on_empty == 'warn':
-                        warnings.warn(f'load of "{f[:-3]}" resulted in no specs')
+                        warnings.warn(f'load of "{filename}" resulted in no specs')
                     elif on_empty == 'error':
-                        raise RuntimeError(f'load of "{f[:-3]}" resulted in no specs')
+                        raise RuntimeError(f'load of "{filename}" resulted in no specs')
                 else:
                     result.update(l_result)    
     return result
 
-def load_selected(selected, path, on_empty=None, on_error=None):
-    """Loads a selected set of specs from a path.
-
-    Returns a tuple of loaded, not_found_list
-    """
-    if path is None:
-        path = os.path.join(ats_input_spec.AMANZI_SRC_DIR, "src")
-
-    result = ats_input_spec.specs.SpecDict()
-    l_selected = selected.copy()
-    for dirname, subdirs, files in os.walk(path):
-        for f in files:
-            if f.endswith(".hh") and os.path.split(f)[-1][:-3] in selected:
-                l_selected.remove(os.path.split(f)[-1][:-3])
-                print("Reading file: %s"%f)
-                with open(os.path.join(dirname,f), 'r') as fid:
-                    lines = ats_input_spec.source_reader.find_all_comments(fid)
-                l_result = load_specs_from_lines(f[:-3], lines, on_error=on_error)
-                if len(l_result) == 0:
-                    if on_empty == 'warn':
-                        warnings.warn(f'load of "{f[:-3]}" resulted in no specs')
-                    elif on_empty == 'error':
-                        raise RuntimeError(f'load of "{f[:-3]}" resulted in no specs')
-                else:
-                    result.update(l_result)    
-
-    return result, l_selected
