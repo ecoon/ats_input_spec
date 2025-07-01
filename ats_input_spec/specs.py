@@ -18,6 +18,8 @@ import copy
 import warnings
 import itertools
 
+DELIMITER = '-'
+
 
 class Parameter(object):
     """An entry, consisting of a name, type, metadata, and value."""
@@ -648,7 +650,7 @@ class TypedSpec(Spec):
             par_coll = ParameterCollection([typed_sublist,])
             self.append(par_coll)
         elif self.policy == 'sublistdash':
-            sublist_name = (self.type+"-"+typename).replace(' ', '-')
+            sublist_name = (self.type+"-"+typename).replace(' ', DELIMITER)
             # the typed spec goes under a new list whose name is typename
             typed_sublist = Parameter(sublist_name, value=typed_spec)
             par_coll = ParameterCollection([typed_sublist,])
@@ -695,28 +697,28 @@ class SpecDict(collections.abc.MutableMapping):
             #result = ats_input_spec.specs.Spec([tc,])
             return tc
         elif key.endswith('-typed-spec'):
-            contained_name = key[:-len('-typed-spec')].replace('-', ' ')
+            contained_name = key[:-len('-typed-spec')].replace(DELIMITER, ' ')
             if key in self._store:
                 others = self._store[key].copy()
             else:
                 others = None
             result = TypedSpec(contained_name, policy='standard', others=others)
         elif key.endswith('-typedinline-spec'):
-            contained_name = key[:-len('-typedinline-spec')].replace('-', ' ')
+            contained_name = key[:-len('-typedinline-spec')].replace(DELIMITER, ' ')
             if key in self._store:
                 others = self._store[key].copy()
             else:
                 others = None
             result = TypedSpec(contained_name, policy='inline', others=others)
         elif key.endswith('-typedsublist-spec'):
-            contained_name = key[:-len('-typedsublist-spec')].replace('-', ' ')
+            contained_name = key[:-len('-typedsublist-spec')].replace(DELIMITER, ' ')
             if key in self._store:
                 others = self._store[key].copy()
             else:
                 others = None
             result = TypedSpec(contained_name, policy='sublist', others=others)
         elif key.endswith('-typedsublistdash-spec'):
-            contained_name = key[:-len('-typedsublistdash-spec')].replace('-', ' ')
+            contained_name = key[:-len('-typedsublistdash-spec')].replace(DELIMITER, ' ')
             if key in self._store:
                 others = self._store[key].copy()
             else:

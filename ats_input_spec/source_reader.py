@@ -13,6 +13,7 @@ the input spec in that file.
 import os
 import logging
 import ats_input_spec.specs
+from ats_input_spec.specs import DELIMITER
 import logging
 import warnings
 
@@ -33,26 +34,26 @@ _magic_words = ["OR",
                 "DEPENDENCIES",
                 ] + _spec_starters
 
+
 def to_specname(inname):
-    name = inname.replace('_','-')
-    name = name.replace(' ','-')
+    name = inname.replace(' ', DELIMITER)
 
     chars = []
     for i in range(len(name)):
         if name[i].isupper():
             if i != 0:
                 if i+1 < len(name) and name[i+1].islower():
-                    chars.append('-')
+                    chars.append(DELIMITER)
                 elif name[i-1].islower():
-                    chars.append('-')
+                    chars.append(DELIMITER)
             elif i != 0 and i+1 == len(name):
-                chars.append('-')
+                chars.append(DELIMITER)
 
         chars.append(name[i].lower())
     res =  ''.join(chars)
     if not res.endswith('-spec'):
         res = res+'-spec'
-    res = res.replace('--', '-')
+    res = res.replace(DELIMITER+DELIMITER, DELIMITER)
     return res
 
 

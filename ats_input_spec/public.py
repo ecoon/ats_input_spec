@@ -11,6 +11,7 @@ The public interface of the ats_input_spec package.
 """
 
 import ats_input_spec.specs
+from ats_input_spec.specs import DELIMITER
 import ats_input_spec.source_reader
 
 known_specs = ats_input_spec.source_reader.load()
@@ -249,7 +250,7 @@ def add_observations_water_balance(main, region,
                                    surface_boundary_region=None,
                                    outlet_region=None,
                                    has_canopy=True, time_args=None):
-    region_us = region.replace(' ', '_')
+    region_us = region.replace(' ', DELIMITER)
     if surface_region is None:
         surface_region = region+' surface'
     if boundary_region is None:
