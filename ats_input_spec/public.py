@@ -63,7 +63,7 @@ def add_domain(main, domain_name, dimension, mesh_type, mesh_args=None):
     else:
         region_name = f"{domain_name} domain"
     add_region(main, region_name, 'all')
-    add_region(main, region_name+' boundary', 'boundary', {'entity':'FACE'})
+    add_region(main, region_name+' boundary','boundary')
 
     # add a visualization sublist for this domain
     main['visualization'].append_empty(domain_name)
@@ -410,7 +410,7 @@ def add_daymet_point_evaluators(main, daymet_filename, include_surface_temperatu
                    ]
     for var, name in daymet_vars:
         ev = main['state']['evaluators'].append_empty(var)
-        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+        ev.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -423,7 +423,7 @@ def add_daymet_point_evaluators(main, daymet_filename, include_surface_temperatu
         # set a surface-temperature as yesterday's air temp
         name = 'air temperature [K]'
         ev = main['state']['evaluators'].append_empty('surface-temperature')
-        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+        ev.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -460,7 +460,7 @@ def add_daymet_box_evaluators(main, daymet_filename, include_surface_temperature
                    ]
     for var, name in daymet_vars:
         ev = main['state']['evaluators'].append_empty(var)
-        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+        ev.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -479,7 +479,7 @@ def add_daymet_box_evaluators(main, daymet_filename, include_surface_temperature
         # set a surface-temperature as yesterday's air temp
         name = 'air temperature [K]'
         ev = main['state']['evaluators'].append_empty('surface-temperature')
-        ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+        ev.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
         entry = ev['function'].append_empty('surface domain')
         entry['region'] = 'surface domain'
         entry['component'] = 'cell'
@@ -505,7 +505,7 @@ def add_lai_point_evaluators(main, lai_filename, lc_types, crosswalk=None):
     """Adds an LAI time series with one point for each LC type in lc_types"""
     global known_specs
     ev = main['state']['evaluators'].append_empty('canopy-leaf_area_index')
-    ev.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+    ev.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
 
     # other is 0 LAI
     entry_other = ev['function'].append_empty('Other')
@@ -542,7 +542,7 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
             fe = main['state']['evaluators'][key]
         except KeyError:
             fe = main['state']['evaluators'].append_empty(key)
-            fe.set_type('independent variable', known_specs['independent-variable-function-evaluator-spec'])
+            fe.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
             fe['constant in time'] = True
         sublist = fe['function'].append_empty(region_name)
         sublist['region'] = region_name
@@ -562,7 +562,7 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
             fe = main['state']['evaluators'][compressibility_key]
         except KeyError:
             fe = main['state']['evaluators'].append_empty(compressibility_key)
-            fe.set_type('compressible porosity', known_specs['compressible-porosity-evaluator-spec'])
+            fe.set_type('compressible porosity', known_specs['evaluator-compressible-porosity-spec'])
         sublist = fe['compressible porosity model parameters'].append_empty(region_name)
         sublist['region'] = region_name
         sublist['pore compressibility [Pa^-1]'] = compressibility
@@ -576,7 +576,7 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
             main['state']['model parameters']['WRM parameters'] = wrm
 
         sublist = wrm.append_empty(region_name)
-        sublist = sublist.set_type('van Genuchten', known_specs['WRM-van-Genuchten-spec'])
+        sublist = sublist.set_type('van Genuchten', known_specs['wrm-van-genuchten-spec'])
         sublist['region'] = region_name
         sublist['van Genuchten alpha [Pa^-1]'] = van_genuchten_alpha
         sublist['van Genuchten n [-]'] = van_genuchten_n
