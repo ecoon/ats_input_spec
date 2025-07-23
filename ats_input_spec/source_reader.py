@@ -37,6 +37,9 @@ _magic_words = ["OR",
 
 def to_specname(inname):
     name = inname.replace(' ', DELIMITER)
+    name = name.replace(',', '')
+    name = name.replace('+', DELIMITER)
+    name = name.replace('_', DELIMITER)
 
     chars = []
     for i in range(len(name)):

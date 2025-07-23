@@ -88,7 +88,7 @@ def test_add_water_balance(main):
 
 def test_add_wrm(main):
     # this must work for WRMs to work
-    flow_pk = ats_input_spec.public.add_leaf_pk(main, 'flow', main['cycle driver']['PK tree'], 'richards-spec')
+    flow_pk = ats_input_spec.public.add_leaf_pk(main, 'flow', main['cycle driver']['PK tree'], 'pk-richards-flow-spec')
 
     ats_input_spec.public.add_soil_type(main, 'GLHYMPS-10101', '1001', 'myfile.exo',
                                         porosity=0.25, permeability=1.e-12, compressibility=1.e-9,

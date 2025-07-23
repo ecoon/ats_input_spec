@@ -365,7 +365,7 @@ class Spec(collections.abc.MutableSequence):
             self[k] = v
     
     def update(self, other):
-        if type(other) is Spec:
+        if isinstance(other, Spec):
             self._update_from_spec(other)
         else:
             self._update_from_dict(other)

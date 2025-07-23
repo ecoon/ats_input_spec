@@ -64,7 +64,7 @@ def add_domain(main, domain_name, dimension, mesh_type, mesh_args=None):
     else:
         region_name = f"{domain_name} domain"
     add_region(main, region_name, 'all')
-    add_region(main, region_name+' boundary','boundary')
+    add_region(main, region_name+' boundary', 'boundary')
 
     # add a visualization sublist for this domain
     main['visualization'].append_empty(domain_name)
