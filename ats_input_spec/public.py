@@ -148,13 +148,15 @@ def set_typical_constants(main):
     grav["value"] = [0.,0.,-9.80665]
     main["state"]["initial conditions"]["gravity"] = grav
 
+
+    
 def set_land_cover_default_constants(main, land_cover_name, transpiration_model='clm'):
     """Adds an empty land cover list, and populates it with "standard" default values."""
     try:
-        lc_list = main['state']['initial conditions']['land cover types']
+        lc_list = main['state']['model parameters']['land cover types']
     except KeyError:
         lc_list = known_specs['land-cover-spec-list']
-        main['state']['initial conditions']['land cover types'] = lc_list
+        main['state']['model parameters']['land cover types'] = lc_list
 
     lc = lc_list.append_empty(land_cover_name)
 
@@ -249,8 +251,8 @@ def add_observations_water_balance(main, region,
                                    boundary_region=None,
                                    surface_boundary_region=None,
                                    outlet_region=None,
-                                   has_canopy=True, time_args=None):
-    region_us = region.replace(' ', DELIMITER)
+                                   has_canopy=True,
+                                   time_args=None):
     if surface_region is None:
         surface_region = region+' surface'
     if boundary_region is None:
@@ -260,7 +262,7 @@ def add_observations_water_balance(main, region,
     if outlet_region is None:
         outlet_region = surface_region + ' outlet'
 
-    name = f'water_balance_{region_us}'
+    name = f"water_balance_{region.replace(' ', '_')}"
     if time_args is None:
         time_args = {'times start period stop':[0.,1.,-1.],
                      'times start period stop units':'d'}
@@ -508,13 +510,7 @@ def add_lai_point_evaluators(main, lai_filename, lc_types, crosswalk=None):
     ev = main['state']['evaluators'].append_empty('canopy-leaf_area_index')
     ev.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
 
-    # other is 0 LAI
-    entry_other = ev['function'].append_empty('Other')
-    entry_other['region'] = 'Other'
-    entry_other['component'] = 'cell'
-    entry_other_func = entry_other['function'].set_type('constant', known_specs['function-constant-spec'])
-    entry_other_func['value'] = 0.
-
+    is_other = False
     for lc_type in lc_types:
         if lc_type != 'Other':
             entry = ev['function'].append_empty(lc_type)
@@ -527,6 +523,17 @@ def add_lai_point_evaluators(main, lai_filename, lc_types, crosswalk=None):
                 func['y header'] = f'{lc_type} LAI [-]'
             else:
                 func['y header'] = f'{crosswalk[lc_type]} LAI [-]'
+        else:
+            is_other = True
+
+    if is_other:
+        # other is 0 LAI
+        entry_other = ev['function'].append_empty('Other')
+        entry_other['region'] = 'Other'
+        entry_other['component'] = 'cell'
+        entry_other_func = entry_other['function'].set_type('constant', known_specs['function-constant-spec'])
+        entry_other_func['value'] = 0.
+    
 
         
 def add_soil_type(main, region_name, label=None, filename=None, porosity=None, permeability=None, compressibility=None,
@@ -538,12 +545,16 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
     if label != None and filename != None:
         add_region_labeled_set(main, region_name, label, filename, 'CELL')
 
-    def add_entry(key, value):
+    def add_entry(key, value, tensor=False):
         try:
             fe = main['state']['evaluators'][key]
         except KeyError:
             fe = main['state']['evaluators'].append_empty(key)
-            fe.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
+            if tensor:
+                fe.set_type('independent variable tensor', known_specs['evaluator-independent-variable-tensor-spec'])
+                fe['tensor type'] = 'scalar'
+            else:
+                fe.set_type('independent variable', known_specs['evaluator-independent-variable-spec'])
             fe['constant in time'] = True
         sublist = fe['function'].append_empty(region_name)
         sublist['region'] = region_name
@@ -555,7 +566,7 @@ def add_soil_type(main, region_name, label=None, filename=None, porosity=None, p
     if porosity is not None:
         add_entry('base_porosity', porosity)
     if permeability is not None:
-        add_entry('permeability', permeability)
+        add_entry('permeability', permeability, True)
 
     # add the entry for pore compressibility
     if compressibility is not None:
