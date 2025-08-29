@@ -263,14 +263,17 @@ class Spec(collections.abc.MutableSequence):
             self.dependencies = kwargs['dependencies']
         else:
             self.dependencies = list()
+
         if 'keys' in kwargs:
             self.keys = kwargs['keys']
         else:
             self.keys = list()
+
         if 'evaluators' in kwargs:
             self.evaluators = kwargs['evaluators']
         else:
             self.evaluators = list()
+
         if 'includes' in kwargs:
             self.includes = kwargs['includes']
         else:
@@ -312,8 +315,11 @@ class Spec(collections.abc.MutableSequence):
     def __len__(self):
         return len(self.collections)
 
-    def insert(self, i, value):
-        self.collections.insert(i, value)
+    def append(self, collection):
+        self.collections.append(collection)
+    
+    def insert(self, i, collection):
+        self.collections.insert(i, collection)
         
     def __contains__(self, k):
         return any((k in coll) for coll in self.collections)
@@ -369,6 +375,7 @@ class Spec(collections.abc.MutableSequence):
             self._update_from_spec(other)
         else:
             self._update_from_dict(other)
+        return self
                 
     def copy(self):
         return Spec([coll.copy() for coll in self.collections],
@@ -753,6 +760,7 @@ class SpecDict(collections.abc.MutableMapping):
     def update(self, other):
         assert(type(other) is SpecDict)
         self._store.update(other._store)
+        return self
 
 
 #

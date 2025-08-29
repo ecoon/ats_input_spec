@@ -175,7 +175,7 @@ def string_from_primitive(value):
     if type(value) is str:
         return value
     elif type(value) is int:
-        return str(int)
+        return str(value)
     elif type(value) is bool:
         if value:
             return "true"
@@ -188,4 +188,4 @@ def string_from_primitive(value):
         t0 = type(value[0])
         value = [valid_from_type(t0, v) for v in value]
         return '{'+','.join([string_from_primitive(v) for v in value])+'}'
-    
+
