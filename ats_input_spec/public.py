@@ -351,19 +351,18 @@ def add_observations_water_balance(main, region,
 #
 # PK objects -- not particularly well supported yet!
 #
-def add_leaf_pk(main, name, parent_list, pk_type):
-    """Adds a PK... time to break something!"""
+def add_pk(main, name, pk_type, parent_in_tree):
+    """Adds a PK to tree parent_in_tree."""
     global known_specs
-    
+
     # add the tree entry, and pop the sub PKs list which is not needed for leaf PKs
-    pk_tree_entry = parent_list.append_empty(name)
-    pk_tree_entry.set_type(pk_type, known_specs[pk_type])
+    pk_tree_entry = parent_in_tree.append_empty(name)
+    pk_tree_entry["PK type"] = pk_type
 
-    # add the PKs entry
-    pk_entry = main["PKs"].append_empty(name)
-    pk_entry.set_type('richards', known_specs[pk_type])
-    return pk_entry
-
+    pk_list_entry = main["PKs"].append_empty(name)
+    pk_list_entry.set_type(pk_type, known_specs[f"pk-{pk_type.replace(' ', '-')}-spec"])
+    return pk_tree_entry, pk_list_entry
+    
 
 def set_pk_evaluator_requirements(main, pk):
     """Ensures evaluator requirements of each PK are in the evaluator list."""
