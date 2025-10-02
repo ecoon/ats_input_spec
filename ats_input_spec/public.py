@@ -214,7 +214,7 @@ def add_observation(main, name, filename,
     obs.update(obs_args_l)
     return obs
 
-def add_observeable(obs, name, variable, region, functional, entity_type,
+def add_observable(obs, name, variable, region, functional, entity_type,
                     time_integrated=False, obs_args=None):
     """Adds an observable to a given observation file."""
     observ = obs['observed quantities'].append_empty(name)
@@ -272,13 +272,13 @@ def add_observations_water_balance(main, region,
 
     # add observables
     # - net runoff - runon
-    observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-water_flux', surface_boundary_region,
+    observ1 = add_observable(obs, 'net runoff [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1['direction normalized flux'] = True
     if region != 'computational domain':
         observ1['direction normalized flux relative to region'] = surface_region
 
-    observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
+    observ1a = add_observable(obs, 'runoff only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1a['direction normalized flux'] = True
     mod1a = observ1a['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
@@ -286,7 +286,7 @@ def add_observations_water_balance(main, region,
     mod1a['amplitude'] = 1.0
     mod1a['shift'] = 0.0
 
-    observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
+    observ1b = add_observable(obs, 'runon only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ1b['direction normalized flux'] = True
     mod1b = observ1b['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
@@ -298,14 +298,14 @@ def add_observations_water_balance(main, region,
         observ1['direction normalized flux relative to region'] = surface_region
         
     # - runoff from the outlet
-    observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-water_flux', outlet_region,
+    observ2 = add_observable(obs, 'river discharge [mol d^-1]', 'surface-water_flux', outlet_region,
                              'extensive integral', 'face', time_integrated=True)
     observ2['direction normalized flux'] = True
     if region != 'computational domain':
         observ2['direction normalized flux relative to region'] = surface_region
 
     # - subsurface groundwater net gain/loss
-    observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'water_flux', boundary_region,
+    observ3 = add_observable(obs, 'net groundwater flux [mol d^-1]', 'water_flux', boundary_region,
                              'extensive integral', 'face', time_integrated=True)
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
@@ -333,16 +333,16 @@ def add_observations_water_balance(main, region,
         ext_to_obs.extend([('canopy-water_content', 'canopy water content [mol]'),])
 
     for flux_obs_var, flux_obs_name in flux_to_obs:
-        add_observeable(obs, flux_obs_name, flux_obs_var, surface_region,
+        add_observable(obs, flux_obs_name, flux_obs_var, surface_region,
                         'average', 'cell', True)
     for ext_obs_var, ext_obs_name in ext_to_obs:
-        add_observeable(obs, ext_obs_name, ext_obs_var, surface_region,
+        add_observable(obs, ext_obs_name, ext_obs_var, surface_region,
                         'extensive integral', 'cell', False)
     for avg_obs_var, avg_obs_name in avg_to_obs:
-        add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
+        add_observable(obs, avg_obs_name, avg_obs_var, surface_region,
                         'average', 'cell', False)
 
-    add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
+    add_observable(obs, 'subsurface water content [mol]', 'water_content', region,
                     'extensive integral', 'cell')
     
     return obs
