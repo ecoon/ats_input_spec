@@ -327,23 +327,22 @@ def add_observations_water_balance(main, region,
                   ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),
                   ]
 
-    if not steadystate:
-        ext_to_obs.extend([('snow-water_content', 'snow water content [mol]'),])
-        
     if has_canopy:
         flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
         ext_to_obs.extend([('canopy-water_content', 'canopy water content [mol]'),])
 
     if not steadystate:
+        ext_to_obs.extend([('snow-water_content', 'snow water content [mol]'),])
         for flux_obs_var, flux_obs_name in flux_to_obs:
             add_observeable(obs, flux_obs_name, flux_obs_var, surface_region,
                             'average', 'cell', True)
+        for avg_obs_var, avg_obs_name in avg_to_obs:
+            add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
+                            'average', 'cell', False)
+
     for ext_obs_var, ext_obs_name in ext_to_obs:
         add_observeable(obs, ext_obs_name, ext_obs_var, surface_region,
                         'extensive integral', 'cell', False)
-    for avg_obs_var, avg_obs_name in avg_to_obs:
-        add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
-                        'average', 'cell', False)
 
     add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
                     'extensive integral', 'cell')
