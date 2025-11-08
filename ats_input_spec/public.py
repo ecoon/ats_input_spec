@@ -275,14 +275,14 @@ def add_observations_water_balance(main, region,
     # add observables
     # - net runoff
     observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-water_flux', surface_boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ1['direction normalized flux'] = True
     if region != 'computational domain':
         observ1['direction normalized flux relative to region'] = surface_region
 
     # - runoff only
     observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ1a['direction normalized flux'] = True
     mod1a = observ1a['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
     mod1a['operator'] = 'positive'
@@ -293,7 +293,7 @@ def add_observations_water_balance(main, region,
 
     # - runon only
     observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ1b['direction normalized flux'] = True
     mod1b = observ1b['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
     mod1b['operator'] = 'negative'
@@ -304,14 +304,14 @@ def add_observations_water_balance(main, region,
         
     # - runoff from the outlet
     observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-water_flux', outlet_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ2['direction normalized flux'] = True
     if region != 'computational domain':
         observ2['direction normalized flux relative to region'] = surface_region
 
     # - subsurface groundwater net gain/loss
     observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'water_flux', boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
         observ3['direction normalized flux relative to region'] = region
@@ -321,7 +321,7 @@ def add_observations_water_balance(main, region,
         add_observeable(obs, 'surface water content [mol]', 'surface-water_content', surface_region,
                         'extensive integral', 'cell', time_integrated=False)
         add_observeable(obs, 'precipitation [m d^-1]', 'surface-precipitation', surface_region,
-                        'average', 'cell', time_integrated=True)
+                        'average', 'cell', time_integrated=False)
     else:
         average_integrated = [
             ('surface-precipitation_rain','rain precipitation [m d^-1]'),
