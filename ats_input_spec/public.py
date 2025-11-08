@@ -252,7 +252,7 @@ def add_observations_water_balance(main, region,
                                    surface_boundary_region=None,
                                    outlet_region=None,
                                    has_canopy=True,
-                                   time_args=None):
+                                   steadystate=False):
     if surface_region is None:
         surface_region = region+' surface'
     if boundary_region is None:
@@ -263,7 +263,9 @@ def add_observations_water_balance(main, region,
         outlet_region = surface_region + ' outlet'
 
     name = f"water_balance_{region.replace(' ', '_')}"
-    if time_args is None:
+    if steadystate:
+        time_args = {'cycles start period stop':[0,10,-1],}
+    else:
         time_args = {'times start period stop':[0.,1.,-1.],
                      'times start period stop units':'d'}
 
@@ -271,79 +273,92 @@ def add_observations_water_balance(main, region,
     obs = add_observation(main, name, name+'.csv', time_units='d', obs_args=time_args)
 
     # add observables
-    # - net runoff - runon
+    # - net runoff
     observ1 = add_observeable(obs, 'net runoff [mol d^-1]', 'surface-water_flux', surface_boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ1['direction normalized flux'] = True
     if region != 'computational domain':
         observ1['direction normalized flux relative to region'] = surface_region
 
+    # - runoff only
     observ1a = add_observeable(obs, 'runoff only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ1a['direction normalized flux'] = True
     mod1a = observ1a['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
     mod1a['operator'] = 'positive'
     mod1a['amplitude'] = 1.0
     mod1a['shift'] = 0.0
+    if region != 'computational domain':
+        observ1a['direction normalized flux relative to region'] = surface_region
 
+    # - runon only
     observ1b = add_observeable(obs, 'runon only [mol d^-1]', 'surface-water_flux', surface_boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ1b['direction normalized flux'] = True
     mod1b = observ1b['modifier'].set_type('standard math', known_specs['function-standard-math-spec'])
     mod1b['operator'] = 'negative'
     mod1b['amplitude'] = -1.0
     mod1b['shift'] = 0.0
-    
     if region != 'computational domain':
-        observ1['direction normalized flux relative to region'] = surface_region
+        observ1b['direction normalized flux relative to region'] = surface_region
         
     # - runoff from the outlet
     observ2 = add_observeable(obs, 'river discharge [mol d^-1]', 'surface-water_flux', outlet_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ2['direction normalized flux'] = True
     if region != 'computational domain':
         observ2['direction normalized flux relative to region'] = surface_region
 
     # - subsurface groundwater net gain/loss
     observ3 = add_observeable(obs, 'net groundwater flux [mol d^-1]', 'water_flux', boundary_region,
-                             'extensive integral', 'face', time_integrated=True)
+                             'extensive integral', 'face', time_integrated=(not steadystate))
     observ3['direction normalized flux'] = True
     if region != 'computational domain':
         observ3['direction normalized flux relative to region'] = region
     
     # - surface average quantities
-    flux_to_obs = [('surface-precipitation_rain','rain precipitation [m d^-1]'),
-                   ('snow-precipitation', 'snow precipitation [m d^-1]'),
-                   ('surface-evaporation', 'surface evaporation [m d^-1]'),
-                   ('snow-evaporation', 'snow evaporation [m d^-1]'),
-                   ('surface-transpiration', 'transpiration [m d^-1]'),
-                   ('snow-melt', 'snowmelt [m d^-1]'),
-                   ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
-                   ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),
-                   ]
-    ext_to_obs = [('surface-water_content', 'surface water content [mol]'),
-                  ('snow-water_content', 'snow water content [mol]'),
-                  ]
-    avg_to_obs = [('surface-air_temperature', 'air temperature [K]'),
-                  ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),
-                  ]
+    if steadystate:
+        add_observeable(obs, 'surface water content [mol]', 'surface-water_content', surface_region,
+                        'extensive integral', 'cell', time_integrated=False)
+        add_observeable(obs, 'precipitation [m d^-1]', 'surface-precipitation', surface_region,
+                        'average', 'cell', time_integrated=False)
+    else:
+        average_integrated = [
+            ('surface-precipitation_rain','rain precipitation [m d^-1]'),
+            ('snow-precipitation', 'snow precipitation [m d^-1]'),
+            ('surface-evaporation', 'surface evaporation [m d^-1]'),
+            ('snow-evaporation', 'snow evaporation [m d^-1]'),
+            ('surface-transpiration', 'transpiration [m d^-1]'),
+            ('snow-melt', 'snowmelt [m d^-1]'),
+            ('surface-total_evapotranspiration', 'total evapotranspiration [m d^-1]'),
+        ]
+        extensive_integrated = [
+            ('surface-surface_subsurface_flux', 'infiltration [mol d^-1]'),
+        ]
+        extensive_only = [
+            ('surface-water_content', 'surface water content [mol]'),
+            ('snow-water_content', 'snow water content [mol]'),
+        ]
+        average_only = [
+            ('surface-air_temperature', 'air temperature [K]'),
+            ('surface-incoming_shortwave_radiation', 'incoming shortwave radiation [W m^-2]'),
+        ]
+        if has_canopy:
+            average_integrated.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
+            extensive_only.extend([('canopy-water_content', 'canopy water content [mol]'),])
 
-    if has_canopy:
-        flux_to_obs.extend([('canopy-evaporation', 'canopy evaporation [m d^-1]'),])
-        ext_to_obs.extend([('canopy-water_content', 'canopy water content [mol]'),])
+        for variable, name in average_integrated:
+            add_observeable(obs, name, variable, surface_region, 'average', 'cell', time_integrated=True)
+        for variable, name in extensive_integrated:
+            add_observeable(obs, name, variable, surface_region, 'extensive integral', 'cell', time_integrated=True)
+        for variable, name in extensive_only:
+            add_observeable(obs, name, variable, surface_region, 'extensive integral', 'cell', time_integrated=False)
+        for variable, name in average_only:
+            add_observeable(obs, name, variable, surface_region, 'average', 'cell', time_integrated=False)
 
-    for flux_obs_var, flux_obs_name in flux_to_obs:
-        add_observeable(obs, flux_obs_name, flux_obs_var, surface_region,
-                        'average', 'cell', True)
-    for ext_obs_var, ext_obs_name in ext_to_obs:
-        add_observeable(obs, ext_obs_name, ext_obs_var, surface_region,
-                        'extensive integral', 'cell', False)
-    for avg_obs_var, avg_obs_name in avg_to_obs:
-        add_observeable(obs, avg_obs_name, avg_obs_var, surface_region,
-                        'average', 'cell', False)
-
+    # - subsurface average quantities
     add_observeable(obs, 'subsurface water content [mol]', 'water_content', region,
-                    'extensive integral', 'cell')
+                    'extensive integral', 'cell', time_integrated=False)
     
     return obs
 
