@@ -9,12 +9,15 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 Module for working with primitive parameter types.
 """
 
+from numbers import Real, Integral
+import decimal
+from decimal import Decimal
 
 class ListBool(object):
     ptype = bool
 
 class ListFloat(object):
-    ptype = float
+    ptype = Decimal
 
 class ListInt(object):
     ptype = int
@@ -22,11 +25,11 @@ class ListInt(object):
 class ListStr(object):
     ptype = str
 
-valid_primitives = [float, int, str, bool]
+valid_primitives = [Decimal, int, str, bool]
 valid_list_primitives = [ListBool,ListFloat,ListInt,ListStr]
 valid_types = valid_primitives + valid_list_primitives
 
-text_to_primitive = {'double':float,
+text_to_primitive = {'double':Decimal,
                     'int':int,
                     'string':str,
                     'bool':bool,
@@ -36,7 +39,7 @@ text_to_primitive = {'double':float,
                     'Array(bool)':ListBool
                     }
 
-primitives_to_text = {float:"double",
+primitives_to_text = {Decimal:"double",
                       int:"int",
                       str:"string",
                       bool:"bool",
@@ -67,20 +70,20 @@ def valid_from_type(ptype, value):
                 return False
 
     elif ptype is int:
-        if type(value) is str:
-            try:
+        try:
+            if isinstance(value, Integral):
                 return int(value)
-            except ValueError:
+            elif isinstance(value, str):
+                return int(value)
+        except ValueError:
                 pass
 
-    elif ptype is float:
-        if type(value) is int:
-            return float(value)
-        elif type(value) is str:
-            try:
-                return float(value)
-            except ValueError:
-                pass
+    elif ptype is Decimal:
+        try:
+            if isinstance(value, Real) or isinstance(value, Integral) or isinstance(value, str):
+                return Decimal(str(value))
+        except decimal.InvalidOperation:
+            pass
 
     elif ptype in valid_list_primitives:
         if type(value) is list:
@@ -99,7 +102,7 @@ def valid_from_type(ptype, value):
 
 def valid_float_from_string(value):
     try:
-        retval = float(value)
+        retval = Decimal(value)
     except ValueError:
         raise RuntimeError("Parameter of type double with invalid value \"%s\""%str(value))
     return retval
@@ -119,10 +122,7 @@ def valid_int_from_string(value):
     try:
         retval = int(value)
     except ValueError:
-        try:
-            return int(float(value))
-        except ValueError:
-            raise RuntimeError("Parameter of type int with invalid value \"%s\""%str(value))
+        raise RuntimeError("Parameter of type int with invalid value \"%s\""%str(value))
     return retval
 
 def valid_bool_from_string(value):
@@ -156,7 +156,7 @@ def valid_primitive_from_string(ptype, value):
 
     if ptype is int:
         return valid_int_from_string(value)
-    elif ptype is float:
+    elif ptype is Decimal:
         return valid_float_from_string(value)
     elif ptype is bool:
         return valid_bool_from_string(value)
@@ -181,8 +181,8 @@ def string_from_primitive(value):
             return "true"
         else:
             return "false"
-    elif type(value) is float:
-        return '%2.8f'%value
+    elif type(value) is Decimal:
+        return str(value)
     elif type(value) is list:
         assert(len(value) > 0)
         t0 = type(value[0])

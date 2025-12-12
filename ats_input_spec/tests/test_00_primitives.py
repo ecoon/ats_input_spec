@@ -9,7 +9,7 @@ Authors: Ethan Coon (ecoon@lanl.gov)
 
 Tests primitives functionality.
 """
-
+from decimal import Decimal
 import ats_input_spec.primitives as primitives
 import pytest
 
@@ -39,23 +39,28 @@ def test_int():
         primitives.valid_from_type(int, '3.3')
 
 def test_float():
-    p = primitives.valid_from_type(float, 123)
-    assert(type(p) is float)
+    p = primitives.valid_from_type(Decimal, 123)
+    assert(type(p) is Decimal)
     assert(p == 123.0)
 
-    p = primitives.valid_from_type(float, 123.0)
-    assert(type(p) is float)
+    p = primitives.valid_from_type(Decimal, 123.0)
+    assert(type(p) is Decimal)
     assert(p == 123.0)
 
-    p = primitives.valid_from_type(float, '123.0')
-    assert(type(p) is float)
+    p = primitives.valid_from_type(Decimal, '123.0')
+    assert(type(p) is Decimal)
     assert(p == 123.0)
 
     with pytest.raises(TypeError):
-        primitives.valid_from_type(float, '3.3.')
+        primitives.valid_from_type(Decimal, '3.3.')
         
     with pytest.raises(TypeError):
-        primitives.valid_from_type(float, True)
+        primitives.valid_from_type(Decimal, True)
+
+    p = primitives.valid_from_type(Decimal, 0.05)
+    assert(type(p) is Decimal)
+    assert(p == Decimal(str(0.05)))
+    assert(p != Decimal(0.05))
 
 def test_str():
     p = primitives.valid_from_type(str, 'abc')
